@@ -77,6 +77,21 @@ func create_window_quad(window_id: int, index: int) -> MeshInstance3D:
     material.albedo_color = Color(1, 1, 1, 1)  # White (will be modulated by texture)
     quad.material_override = material
 
+    # Add collision shape for raycasting
+    var static_body = StaticBody3D.new()
+    quad.add_child(static_body)
+
+    var collision_shape = CollisionShape3D.new()
+    static_body.add_child(collision_shape)
+
+    var box_shape = BoxShape3D.new()
+    box_shape.size = Vector3(1, 1, 0.01)  # Thin box matching quad size
+    collision_shape.shape = box_shape
+
+    # Store window ID as metadata for identification
+    quad.set_meta("window_id", window_id)
+    static_body.set_meta("window_id", window_id)
+
     # Position the quad - in front of the reference plane
     # Camera is at z=3, looking at -Z. Reference plane is at z=-2.
     # Put windows at z=-1 (closer to camera than the reference plane)

@@ -33,6 +33,9 @@ struct X11Window {
     bool mapped;                     // Is window currently mapped
     std::vector<uint8_t> image_data; // Cached window contents
     bool has_image;                  // Whether we have valid image data
+    String wm_class;                 // Window class (application identifier)
+    String wm_name;                  // Window title
+    int pid;                         // Process ID
 };
 
 class X11Compositor : public Node {
@@ -99,6 +102,17 @@ public:
     Vector2i get_window_size(int window_id);
     String get_display_name();
     bool is_initialized();
+
+    // Window properties for application grouping
+    String get_window_class(int window_id);
+    String get_window_title(int window_id);
+    int get_window_pid(int window_id);
+
+    // Input handling
+    void send_mouse_button(int window_id, int button, bool pressed, int x, int y);
+    void send_mouse_motion(int window_id, int x, int y);
+    void send_key_event(int window_id, int keycode, bool pressed);
+    void set_window_focus(int window_id);
 };
 
 } // namespace godot

@@ -39,6 +39,17 @@ void X11Compositor::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_window_size", "window_id"), &X11Compositor::get_window_size);
     ClassDB::bind_method(D_METHOD("get_display_name"), &X11Compositor::get_display_name);
     ClassDB::bind_method(D_METHOD("is_initialized"), &X11Compositor::is_initialized);
+
+    // Window properties
+    ClassDB::bind_method(D_METHOD("get_window_class", "window_id"), &X11Compositor::get_window_class);
+    ClassDB::bind_method(D_METHOD("get_window_title", "window_id"), &X11Compositor::get_window_title);
+    ClassDB::bind_method(D_METHOD("get_window_pid", "window_id"), &X11Compositor::get_window_pid);
+
+    // Input handling
+    ClassDB::bind_method(D_METHOD("send_mouse_button", "window_id", "button", "pressed", "x", "y"), &X11Compositor::send_mouse_button);
+    ClassDB::bind_method(D_METHOD("send_mouse_motion", "window_id", "x", "y"), &X11Compositor::send_mouse_motion);
+    ClassDB::bind_method(D_METHOD("send_key_event", "window_id", "keycode", "pressed"), &X11Compositor::send_key_event);
+    ClassDB::bind_method(D_METHOD("set_window_focus", "window_id"), &X11Compositor::set_window_focus);
 }
 
 void X11Compositor::_ready() {
@@ -355,6 +366,38 @@ void X11Compositor::add_window(X11WindowHandle xwin) {
     window->y = attrs.y;
     window->mapped = (attrs.map_state == IsViewable);
     window->has_image = false;
+    window->pid = -1;
+
+    // Get window title (WM_NAME)
+    char *window_name = nullptr;
+    XFetchName(display, xwin, &window_name);
+    window->wm_name = window_name ? String(window_name) : String("");
+    if (window_name) XFree(window_name);
+
+    // Get window class (WM_CLASS)
+    XClassHint class_hint;
+    if (XGetClassHint(display, xwin, &class_hint)) {
+        window->wm_class = class_hint.res_class ? String(class_hint.res_class) : String("");
+        if (class_hint.res_name) XFree(class_hint.res_name);
+        if (class_hint.res_class) XFree(class_hint.res_class);
+    } else {
+        window->wm_class = String("");
+    }
+
+    // Get PID (_NET_WM_PID property)
+    Atom pid_atom = XInternAtom(display, "_NET_WM_PID", False);
+    Atom actual_type;
+    int actual_format;
+    unsigned long nitems, bytes_after;
+    unsigned char *prop = nullptr;
+
+    if (XGetWindowProperty(display, xwin, pid_atom, 0, 1, False, XA_CARDINAL,
+                          &actual_type, &actual_format, &nitems, &bytes_after, &prop) == Success) {
+        if (prop && nitems > 0) {
+            window->pid = *((int*)prop);
+        }
+        if (prop) XFree(prop);
+    }
 
     // Set up damage tracking if available
     if (damage_available) {
@@ -368,13 +411,9 @@ void X11Compositor::add_window(X11WindowHandle xwin) {
     windows[window->id] = window;
     xwindow_to_id[xwin] = window->id;
 
-    // Get window name for debugging
-    char *window_name = nullptr;
-    XFetchName(display, xwin, &window_name);
     UtilityFunctions::print("Tracking window ", window->id, ": ",
-                           window_name ? String(window_name) : String("(unnamed)"),
+                           window->wm_name, " [", window->wm_class, "] ",
                            " (", window->width, "x", window->height, ")");
-    if (window_name) XFree(window_name);
 }
 
 void X11Compositor::remove_window(X11WindowHandle xwin) {
@@ -609,6 +648,133 @@ String X11Compositor::get_display_name() {
 
 bool X11Compositor::is_initialized() {
     return initialized;
+}
+
+// Window property getters
+String X11Compositor::get_window_class(int window_id) {
+    auto it = windows.find(window_id);
+    if (it == windows.end()) {
+        return String();
+    }
+    return it->second->wm_class;
+}
+
+String X11Compositor::get_window_title(int window_id) {
+    auto it = windows.find(window_id);
+    if (it == windows.end()) {
+        return String();
+    }
+    return it->second->wm_name;
+}
+
+int X11Compositor::get_window_pid(int window_id) {
+    auto it = windows.find(window_id);
+    if (it == windows.end()) {
+        return -1;
+    }
+    return it->second->pid;
+}
+
+// Input handling methods
+void X11Compositor::send_mouse_button(int window_id, int button, bool pressed, int x, int y) {
+    auto it = windows.find(window_id);
+    if (it == windows.end() || !display) {
+        return;
+    }
+
+    X11Window *window = it->second;
+
+    XEvent event;
+    memset(&event, 0, sizeof(event));
+
+    event.type = pressed ? ButtonPress : ButtonRelease;
+    event.xbutton.window = window->xwindow;
+    event.xbutton.root = root_window;
+    event.xbutton.subwindow = None;
+    event.xbutton.time = CurrentTime;
+    event.xbutton.x = x;
+    event.xbutton.y = y;
+    event.xbutton.x_root = 0;
+    event.xbutton.y_root = 0;
+    event.xbutton.state = 0;
+    event.xbutton.button = button;
+    event.xbutton.same_screen = True;
+
+    XSendEvent(display, window->xwindow, True, ButtonPressMask | ButtonReleaseMask, &event);
+    XFlush(display);
+}
+
+void X11Compositor::send_mouse_motion(int window_id, int x, int y) {
+    auto it = windows.find(window_id);
+    if (it == windows.end() || !display) {
+        return;
+    }
+
+    X11Window *window = it->second;
+
+    XEvent event;
+    memset(&event, 0, sizeof(event));
+
+    event.type = MotionNotify;
+    event.xmotion.window = window->xwindow;
+    event.xmotion.root = root_window;
+    event.xmotion.subwindow = None;
+    event.xmotion.time = CurrentTime;
+    event.xmotion.x = x;
+    event.xmotion.y = y;
+    event.xmotion.x_root = 0;
+    event.xmotion.y_root = 0;
+    event.xmotion.state = 0;
+    event.xmotion.is_hint = NotifyNormal;
+    event.xmotion.same_screen = True;
+
+    XSendEvent(display, window->xwindow, True, PointerMotionMask, &event);
+    XFlush(display);
+}
+
+void X11Compositor::send_key_event(int window_id, int keycode, bool pressed) {
+    auto it = windows.find(window_id);
+    if (it == windows.end() || !display) {
+        return;
+    }
+
+    X11Window *window = it->second;
+
+    XEvent event;
+    memset(&event, 0, sizeof(event));
+
+    event.type = pressed ? KeyPress : KeyRelease;
+    event.xkey.window = window->xwindow;
+    event.xkey.root = root_window;
+    event.xkey.subwindow = None;
+    event.xkey.time = CurrentTime;
+    event.xkey.x = 0;
+    event.xkey.y = 0;
+    event.xkey.x_root = 0;
+    event.xkey.y_root = 0;
+    event.xkey.state = 0;
+    event.xkey.keycode = keycode;
+    event.xkey.same_screen = True;
+
+    XSendEvent(display, window->xwindow, True, KeyPressMask | KeyReleaseMask, &event);
+    XFlush(display);
+}
+
+void X11Compositor::set_window_focus(int window_id) {
+    auto it = windows.find(window_id);
+    if (it == windows.end() || !display) {
+        return;
+    }
+
+    X11Window *window = it->second;
+
+    // Set input focus to this window
+    XSetInputFocus(display, window->xwindow, RevertToParent, CurrentTime);
+
+    // Raise the window to the top of the stacking order
+    XRaiseWindow(display, window->xwindow);
+
+    XFlush(display);
 }
 
 void X11Compositor::cleanup() {
