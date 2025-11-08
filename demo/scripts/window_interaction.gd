@@ -157,12 +157,30 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 			if not has_meta("last_debug_time") or time - get_meta("last_debug_time") > 500:
 				set_meta("last_debug_time", time)
 				var parent_id = compositor.get_parent_window_id(window_id)
+
+				# Check collision shape size
+				var static_body = quad.get_node_or_null("StaticBody3D")
+				var collision_size = Vector3.ZERO
+				if static_body:
+					var collision_shape = static_body.get_node_or_null("CollisionShape3D")
+					if collision_shape and collision_shape.shape is BoxShape3D:
+						collision_size = collision_shape.shape.size
+
+				# Calculate expected local pos range based on quad scale
+				var expected_x_range = Vector2(-quad.scale.x / 2, quad.scale.x / 2)
+				var expected_y_range = Vector2(-quad.scale.y / 2, quad.scale.y / 2)
+
 				print("━━━ MOUSE DEBUG ━━━")
 				print("  Window ID: ", window_id, " (parent: ", parent_id, ")")
 				print("  Hit pos (world): ", hit_pos)
 				print("  Quad position: ", quad.global_position)
 				print("  Quad scale: ", quad.scale)
-				print("  Local pos (mesh space): ", local_pos)
+				print("  Collision box size: ", collision_size)
+				print("  Expected local_pos X range: ", expected_x_range)
+				print("  Expected local_pos Y range: ", expected_y_range)
+				print("  Actual local pos: ", local_pos, " (Z should be ~0.005)")
+				print("  Local pos in range? X:", local_pos.x >= expected_x_range.x and local_pos.x <= expected_x_range.y,
+				      " Y:", local_pos.y >= expected_y_range.x and local_pos.y <= expected_y_range.y)
 				print("  Window size (pixels): ", window_size)
 				print("  Calculated tex coords: (", tex_x, ", ", tex_y, ")")
 				print("  Sending to X11: (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
