@@ -6,8 +6,6 @@
 #include <godot_cpp/core/defs.hpp>
 #include <godot_cpp/godot.hpp>
 
-#include <stdio.h>
-
 using namespace godot;
 
 void initialize_x11_compositor_module(ModuleInitializationLevel p_level) {
@@ -31,20 +29,12 @@ extern "C" {
         GDExtensionClassLibraryPtr p_library,
         GDExtensionInitialization *r_initialization
     ) {
-        // Debug: Print to stderr to see if this function is called
-        fprintf(stderr, "[X11Compositor] Library init function called!\n");
-        fflush(stderr);
-
         godot::GDExtensionBinding::InitObject init_obj(p_get_proc_address, p_library, r_initialization);
 
         init_obj.register_initializer(initialize_x11_compositor_module);
         init_obj.register_terminator(uninitialize_x11_compositor_module);
         init_obj.set_minimum_library_initialization_level(MODULE_INITIALIZATION_LEVEL_SCENE);
 
-        GDExtensionBool result = init_obj.init();
-        fprintf(stderr, "[X11Compositor] Library init result: %d\n", result);
-        fflush(stderr);
-
-        return result;
+        return init_obj.init();
     }
 }
