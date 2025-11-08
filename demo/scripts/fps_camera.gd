@@ -23,9 +23,7 @@ func _ready():
         window_interaction = get_node_or_null("/root/Main/WindowInteraction")
 
 func _input(event):
-    # Don't handle input if a window is selected
-    if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
-        return
+    # Camera always works - no locking even when window selected
 
     if event is InputEventMouseMotion and _mouse_captured:
         rotate_y(-event.relative.x * mouse_sensitivity)
@@ -44,9 +42,7 @@ func _input(event):
             _mouse_captured = true
 
 func _process(delta):
-    # Don't move if a window is selected
-    if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
-        return
+    # Camera always moves - no locking
 
     var velocity = Vector3.ZERO
 

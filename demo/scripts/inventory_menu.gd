@@ -134,21 +134,24 @@ func launch_application(command: String):
 		push_error("Cannot launch app: no display available")
 		return
 
+	print("═══════════════════════════════════════")
 	print("Launching ", command, " on display ", display)
 
-	# Launch the application on the Xvfb display
-	var pid = OS.create_process(command, [])
-
-	if pid > 0:
-		print("Launched ", command, " with PID ", pid)
-	else:
-		push_error("Failed to launch ", command)
-
-	# Note: We need to set DISPLAY environment variable
-	# Since Godot's create_process doesn't allow setting env vars easily,
-	# we'll use a shell command instead
+	# Launch using shell with DISPLAY environment variable
 	var shell_command = "DISPLAY=%s %s &" % [display, command]
-	OS.execute("sh", ["-c", shell_command])
+	print("Executing: ", shell_command)
+
+	var output = []
+	var exit_code = OS.execute("sh", ["-c", shell_command], output, false, false)
+
+	if exit_code == 0:
+		print("✓ Launched ", command, " successfully")
+	else:
+		push_error("✗ Failed to launch ", command, " (exit code: ", exit_code, ")")
+		if output.size() > 0:
+			print("Output: ", output)
+
+	print("═══════════════════════════════════════")
 
 	# Hide menu after launching
 	hide_menu()

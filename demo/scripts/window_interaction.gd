@@ -235,9 +235,9 @@ func select_window(window_id: int, quad: MeshInstance3D):
 	var window_title = compositor.get_window_title(window_id)
 	print("╔═══════════════════════════════════════╗")
 	print("║ WINDOW SELECTED!                      ║")
-	print("║ ", window_title.pad_to(37), "║")
+	print("║ ", window_title, " " * max(0, 37 - window_title.length()), "║")
 	print("║                                       ║")
-	print("║ Keyboard input now goes to this window ║")
+	print("║ Mouse/keyboard goes to this window    ║")
 	print("║ Press ESC to release                  ║")
 	print("╚═══════════════════════════════════════╝")
 
@@ -253,9 +253,24 @@ func deselect_window():
 	selected_window_quad = null
 
 func _input(event):
-	# Handle selection toggle
-	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
-		print_debug("Mouse click - State: ", ["NONE", "HOVERED", "SELECTED"][current_state])
+	# Handle mouse button events
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
+		# Only act on PRESS, not release
+		if not event.pressed:
+			# Forward release to selected window if any
+			if current_state == WindowState.SELECTED:
+				compositor.send_mouse_button(
+					selected_window_id,
+					event.button_index,
+					false,
+					int(window_mouse_pos.x),
+					int(window_mouse_pos.y)
+				)
+				get_viewport().set_input_as_handled()
+			return
+
+		# Mouse button PRESSED
+		print_debug("Mouse click PRESSED - State: ", ["NONE", "HOVERED", "SELECTED"][current_state])
 
 		if current_state == WindowState.HOVERED and can_select:
 			# Select the hovered window
@@ -264,9 +279,28 @@ func _input(event):
 			pulse_click()
 			get_viewport().set_input_as_handled()
 			return
+
 		elif current_state == WindowState.SELECTED:
 			# Click on selected window - forward to X11
 			print("Forwarding click to window ", selected_window_id, " at (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
+			compositor.send_mouse_button(
+				selected_window_id,
+				event.button_index,
+				true,  # pressed
+				int(window_mouse_pos.x),
+				int(window_mouse_pos.y)
+			)
+			pulse_click()
+			get_viewport().set_input_as_handled()
+			return
+
+		else:
+			print("Click ignored - not ready (can_select=", can_select, ", hover_timer=", hover_timer, ")")
+			return
+
+	# Forward other mouse buttons
+	if event is InputEventMouseButton:
+		if current_state == WindowState.SELECTED:
 			compositor.send_mouse_button(
 				selected_window_id,
 				event.button_index,
@@ -274,26 +308,7 @@ func _input(event):
 				int(window_mouse_pos.x),
 				int(window_mouse_pos.y)
 			)
-			pulse_click()
 			get_viewport().set_input_as_handled()
-			return
-		else:
-			print("Click ignored - not ready (can_select=", can_select, ", hover_timer=", hover_timer, ")")
-
-	# Forward mouse buttons to hovered/selected window
-	if event is InputEventMouseButton:
-		var target_id = selected_window_id if current_state == WindowState.SELECTED else hovered_window_id
-		if target_id != -1:
-			print("Forwarding mouse button ", event.button_index, " (", "pressed" if event.pressed else "released", ") to window ", target_id)
-			compositor.send_mouse_button(
-				target_id,
-				event.button_index,
-				event.pressed,
-				int(window_mouse_pos.x),
-				int(window_mouse_pos.y)
-			)
-			if current_state == WindowState.SELECTED:
-				get_viewport().set_input_as_handled()
 			return
 
 	# Keyboard input - only forward when SELECTED
@@ -381,10 +396,10 @@ func add_selection_glow(quad: MeshInstance3D):
 	glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	outline.material_override = glow_mat
 
-	# Position slightly behind the window
-	outline.position.z = 0.01
+	# Position in FRONT of the window (negative Z = towards camera in local quad space)
+	outline.position.z = -0.02
 
-	print("  Added BRIGHT CYAN selection glow border")
+	print("  Added BRIGHT CYAN selection glow border (in front of window)")
 
 func remove_selection_glow(quad: MeshInstance3D):
 	var glow = quad.get_node_or_null("SelectionGlow")
