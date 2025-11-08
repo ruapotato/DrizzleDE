@@ -1,18 +1,32 @@
 extends Camera3D
 
 ## Simple FPS camera controller for navigating the 3D workspace
+## Automatically disables when a window is selected
 
 @export var mouse_sensitivity := 0.002
 @export var move_speed := 5.0
 @export var sprint_multiplier := 2.0
+@export var window_interaction_path: NodePath
 
 var _mouse_captured := false
+var window_interaction: Node = null
 
 func _ready():
     Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
     _mouse_captured = true
 
+    # Find window interaction node
+    if window_interaction_path:
+        window_interaction = get_node(window_interaction_path)
+    else:
+        # Try to find it in the scene
+        window_interaction = get_node_or_null("/root/Main/WindowInteraction")
+
 func _input(event):
+    # Don't handle input if a window is selected
+    if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
+        return
+
     if event is InputEventMouseMotion and _mouse_captured:
         rotate_y(-event.relative.x * mouse_sensitivity)
 
@@ -30,6 +44,10 @@ func _input(event):
             _mouse_captured = true
 
 func _process(delta):
+    # Don't move if a window is selected
+    if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
+        return
+
     var velocity = Vector3.ZERO
 
     if Input.is_action_pressed("move_forward"):
