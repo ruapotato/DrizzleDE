@@ -151,6 +151,15 @@ func _process(delta):
 		deselect_window()
 
 func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Vector3, delta: float):
+	# Skip unmapped (closed) windows - don't allow hover/selection
+	if not compositor.is_window_mapped(window_id):
+		# Window is closed but quad still exists - treat as no hit
+		if current_state == WindowState.HOVERED:
+			clear_hover()
+		elif current_state == WindowState.SELECTED:
+			deselect_window()
+		return
+
 	# Calculate window-local mouse position
 	var local_pos = quad.global_transform.affine_inverse() * hit_pos
 	var window_size = compositor.get_window_size(window_id)

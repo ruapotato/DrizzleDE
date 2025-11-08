@@ -456,6 +456,19 @@ void X11Compositor::add_window(X11WindowHandle xwin) {
                            " (", window->width, "x", window->height, ")");
 }
 
+// Error handler to ignore BadDamage and BadWindow errors during cleanup
+static int ignore_cleanup_errors(Display *display, XErrorEvent *error) {
+    // Silently ignore BadDamage (damage object already destroyed)
+    // and BadWindow (window already destroyed) errors during cleanup
+    if (error->error_code == BadWindow ||
+        error->error_code == BadDrawable ||
+        error->error_code == BadPixmap) {
+        return 0;  // Ignore error
+    }
+    // For other errors, let the default handler deal with it
+    return 0;  // Actually, just ignore all errors during cleanup
+}
+
 void X11Compositor::remove_window(X11WindowHandle xwin) {
     auto it = xwindow_to_id.find(xwin);
     if (it == xwindow_to_id.end()) {
@@ -467,13 +480,18 @@ void X11Compositor::remove_window(X11WindowHandle xwin) {
 
     UtilityFunctions::print("Removing window ", window_id);
 
-    // Clean up damage tracking - set error handler to ignore BadDamage errors
-    // (window might already be destroyed on X11 side)
+    // Clean up damage tracking - use error handler to ignore errors
+    // (window/damage might already be destroyed on X11 side)
     if (damage_available && window->damage) {
-        // Ignore errors when destroying damage - window might be gone
+        // Set temporary error handler to ignore cleanup errors
+        XErrorHandler old_handler = XSetErrorHandler(ignore_cleanup_errors);
+
         XSync(display, False);  // Flush pending requests first
         XDamageDestroy(display, window->damage);
         XSync(display, False);  // Ensure the destroy completes
+
+        // Restore previous error handler
+        XSetErrorHandler(old_handler);
     }
 
     // Remove from maps
@@ -734,6 +752,11 @@ Vector2i X11Compositor::get_window_position(int window_id) {
     }
     X11Window *window = it->second;
 
+    // Can't get position of unmapped windows (causes BadWindow error)
+    if (!window->mapped) {
+        return Vector2i(window->x, window->y);  // Return cached position
+    }
+
     // Get absolute position relative to root window using XTranslateCoordinates
     // This is more reliable than XWindowAttributes x,y which can be relative to parent
     ::Window child_return;
@@ -972,6 +995,12 @@ void X11Compositor::set_window_focus(int window_id) {
 
     X11Window *window = it->second;
 
+    // Don't try to focus unmapped windows (causes BadMatch error)
+    if (!window->mapped) {
+        UtilityFunctions::print("Skipping focus on unmapped window ", window_id);
+        return;
+    }
+
     // Set input focus to this window
     XSetInputFocus(display, window->xwindow, RevertToParent, CurrentTime);
 
@@ -988,6 +1017,9 @@ void X11Compositor::cleanup() {
 
     UtilityFunctions::print("Cleaning up X11Compositor...");
 
+    // Set error handler to ignore cleanup errors
+    XErrorHandler old_handler = XSetErrorHandler(ignore_cleanup_errors);
+
     // Clean up all tracked windows
     for (auto &pair : windows) {
         X11Window *window = pair.second;
@@ -998,6 +1030,9 @@ void X11Compositor::cleanup() {
     }
     windows.clear();
     xwindow_to_id.clear();
+
+    // Restore error handler
+    XSetErrorHandler(old_handler);
 
     // Disable composite redirection
     if (composite_available) {
