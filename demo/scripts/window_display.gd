@@ -211,16 +211,30 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
     # Check if this is a popup window (has a parent)
     var parent_id = compositor.get_parent_window_id(window_id)
     if parent_id != -1 and parent_id in window_quads:
-        # This is a popup - position it relative to the parent window
+        # This is a popup - position it relative to the parent window using actual X11 coordinates
         var parent_quad = window_quads[parent_id]
         var parent_pos = parent_quad.global_position
 
-        # Position popup slightly to the right and down from parent
-        # This roughly matches where Firefox shows its dropdown menus
-        var popup_offset = Vector3(0.2, -0.3, 0)
+        # Get actual X11 window positions (in pixels)
+        var popup_pos_px = compositor.get_window_position(window_id)
+        var parent_pos_px = compositor.get_window_position(parent_id)
+
+        # Calculate offset in pixels
+        var offset_x_px = popup_pos_px.x - parent_pos_px.x
+        var offset_y_px = popup_pos_px.y - parent_pos_px.y
+
+        # Convert pixel offset to world units
+        # Note: Y is inverted - in X11, Y increases downward, in 3D world Y increases upward
+        var offset_world = Vector3(
+            float(offset_x_px) / pixels_per_world_unit,
+            -float(offset_y_px) / pixels_per_world_unit,  # Negate Y
+            0
+        )
 
         print("  Positioning popup window ", window_id, " relative to parent ", parent_id)
-        return parent_pos + popup_offset
+        print("    Parent pos (pixels): ", parent_pos_px, ", Popup pos (pixels): ", popup_pos_px)
+        print("    Offset (pixels): ", offset_x_px, ", ", offset_y_px, " -> World: ", offset_world)
+        return parent_pos + offset_world
 
     # If this app already has windows, spawn near them
     if app_class != "" and app_class in app_zones:

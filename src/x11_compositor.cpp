@@ -46,6 +46,7 @@ void X11Compositor::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_window_title", "window_id"), &X11Compositor::get_window_title);
     ClassDB::bind_method(D_METHOD("get_window_pid", "window_id"), &X11Compositor::get_window_pid);
     ClassDB::bind_method(D_METHOD("get_parent_window_id", "window_id"), &X11Compositor::get_parent_window_id);
+    ClassDB::bind_method(D_METHOD("get_window_position", "window_id"), &X11Compositor::get_window_position);
 
     // Input handling
     ClassDB::bind_method(D_METHOD("send_mouse_button", "window_id", "button", "pressed", "x", "y"), &X11Compositor::send_mouse_button);
@@ -710,6 +711,15 @@ int X11Compositor::get_parent_window_id(int window_id) {
         return -1;
     }
     return it->second->parent_window_id;
+}
+
+Vector2i X11Compositor::get_window_position(int window_id) {
+    auto it = windows.find(window_id);
+    if (it == windows.end()) {
+        return Vector2i(0, 0);
+    }
+    X11Window *window = it->second;
+    return Vector2i(window->x, window->y);
 }
 
 // Input handling methods

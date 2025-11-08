@@ -109,6 +109,7 @@ public:
     String get_window_title(int window_id);
     int get_window_pid(int window_id);
     int get_parent_window_id(int window_id);
+    Vector2i get_window_position(int window_id);
 
     // Input handling
     void send_mouse_button(int window_id, int button, bool pressed, int x, int y);
