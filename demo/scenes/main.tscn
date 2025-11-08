@@ -1,9 +1,9 @@
 [gd_scene load_steps=9 format=3 uid="uid://bkqwx8yjnm7cp"]
 
-[ext_resource type="Script" path="res://demo/scripts/fps_camera.gd" id="1_fps_camera"]
-[ext_resource type="Script" path="res://demo/scripts/window_display.gd" id="2_window_display"]
-[ext_resource type="Script" path="res://demo/scripts/window_interaction.gd" id="3_window_interaction"]
-[ext_resource type="Script" path="res://demo/scripts/inventory_menu.gd" id="4_inventory_menu"]
+[ext_resource type="Script" uid="uid://b8jp3042djyoi" path="res://demo/scripts/fps_camera.gd" id="1_fps_camera"]
+[ext_resource type="Script" uid="uid://bcuyoile8ks05" path="res://demo/scripts/window_display.gd" id="2_window_display"]
+[ext_resource type="Script" uid="uid://b0h1aqxyc705e" path="res://demo/scripts/window_interaction.gd" id="3_window_interaction"]
+[ext_resource type="Script" uid="uid://cegsn7vacvv5h" path="res://demo/scripts/inventory_menu.gd" id="4_inventory_menu"]
 
 [sub_resource type="Environment" id="Environment_1"]
 background_mode = 1
@@ -14,11 +14,11 @@ ambient_light_color = Color(1, 1, 1, 1)
 [sub_resource type="PlaneMesh" id="PlaneMesh_1"]
 size = Vector2(10, 10)
 
-[sub_resource type="QuadMesh" id="QuadMesh_1"]
-size = Vector2(2, 2)
-
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
 albedo_color = Color(0.2, 0.2, 0.25, 1)
+
+[sub_resource type="QuadMesh" id="QuadMesh_1"]
+size = Vector2(2, 2)
 
 [node name="Main" type="Node3D"]
 
