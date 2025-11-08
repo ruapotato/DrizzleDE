@@ -172,9 +172,11 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
 
     # Add collision shape for raycasting
     var static_body = StaticBody3D.new()
+    static_body.name = "StaticBody3D"
     quad.add_child(static_body)
 
     var collision_shape = CollisionShape3D.new()
+    collision_shape.name = "CollisionShape3D"
     static_body.add_child(collision_shape)
 
     var box_shape = BoxShape3D.new()
