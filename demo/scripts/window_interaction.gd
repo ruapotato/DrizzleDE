@@ -129,9 +129,11 @@ func _process(delta):
 		mouse_sphere.global_position = from + (-camera.global_transform.basis.z * 3.0)
 		mouse_sphere.visible = true
 
-	# No window hit - clear hover state (but keep selection)
+	# No window hit - clear hover AND selection (auto-deselect when looking away)
 	if current_state == WindowState.HOVERED:
 		clear_hover()
+	elif current_state == WindowState.SELECTED:
+		deselect_window()
 
 func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Vector3, delta: float):
 	# Calculate window-local mouse position
@@ -178,8 +180,12 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 					print("Window ", window_id, " ready to select (hovered ", hover_timer, "s)")
 
 		WindowState.SELECTED:
-			# Already selected, just update mouse position
-			pass
+			# If looking at a different window, auto-deselect and start hovering the new one
+			if window_id != selected_window_id:
+				print("Looking at different window - auto-deselecting")
+				deselect_window()
+				start_hover(window_id, quad)
+			# Otherwise just update mouse position (already handled above)
 
 func start_hover(window_id: int, quad: MeshInstance3D):
 	current_state = WindowState.HOVERED

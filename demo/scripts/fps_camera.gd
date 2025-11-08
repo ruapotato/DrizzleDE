@@ -42,7 +42,9 @@ func _input(event):
             _mouse_captured = true
 
 func _process(delta):
-    # Camera always moves - no locking
+    # Don't move if a window is selected - player must look away to deselect
+    if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
+        return
 
     var velocity = Vector3.ZERO
 
