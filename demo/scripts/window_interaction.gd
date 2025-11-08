@@ -159,11 +159,19 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 			int(window_mouse_pos.y)
 		)
 
+	# Check if this is a popup window of the currently selected window
+	var parent_id = compositor.get_parent_window_id(window_id)
+	var is_popup_of_selected = (parent_id == selected_window_id)
+
 	# State machine
 	match current_state:
 		WindowState.NONE:
 			# Start hovering
 			start_hover(window_id, quad)
+			# If this is a popup of previously selected window, select it immediately
+			if is_popup_of_selected:
+				print("Auto-selecting popup window of selected parent")
+				select_window(window_id, quad)
 
 		WindowState.HOVERED:
 			if window_id != hovered_window_id:
@@ -171,6 +179,10 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 				print("Switched hover from window ", hovered_window_id, " to ", window_id)
 				clear_hover()
 				start_hover(window_id, quad)
+				# If this is a popup of selected window, select it immediately
+				if is_popup_of_selected:
+					print("Auto-selecting popup window of selected parent")
+					select_window(window_id, quad)
 			else:
 				# Continue hovering - increment timer
 				hover_timer += delta
@@ -180,11 +192,18 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 					print("Window ", window_id, " ready to select (hovered ", hover_timer, "s)")
 
 		WindowState.SELECTED:
-			# If looking at a different window, auto-deselect and start hovering the new one
+			# If looking at a popup of this window, switch selection to the popup
 			if window_id != selected_window_id:
-				print("Looking at different window - auto-deselecting")
-				deselect_window()
-				start_hover(window_id, quad)
+				if is_popup_of_selected:
+					print("Switching selection from parent to popup child")
+					# Don't deselect - just switch to child
+					var old_selected = selected_window_id
+					deselect_window()
+					select_window(window_id, quad)
+				else:
+					print("Looking at different window - auto-deselecting")
+					deselect_window()
+					start_hover(window_id, quad)
 			# Otherwise just update mouse position (already handled above)
 
 func start_hover(window_id: int, quad: MeshInstance3D):
