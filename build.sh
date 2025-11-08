@@ -39,9 +39,17 @@ check_command g++
 check_command pkg-config
 
 # Check libraries
-check_pkg_config wlroots "wlroots-devel"
-check_pkg_config wayland-server "wayland-devel"
-check_pkg_config pixman-1 "pixman-devel"
+check_pkg_config wlroots "wlroots-devel (Fedora) or libwlroots-dev (Ubuntu)"
+check_pkg_config wayland-server "wayland-devel (Fedora) or libwayland-dev (Ubuntu)"
+check_pkg_config pixman-1 "pixman-devel (Fedora) or libpixman-1-dev (Ubuntu)"
+
+# Check for wayland-protocols (headers needed for xdg-shell)
+if [ ! -f "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml" ] && \
+   [ ! -f "/usr/local/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml" ]; then
+    echo -e "${RED}Error: wayland-protocols not found${NC}"
+    echo "Install with: sudo apt install wayland-protocols (Ubuntu) or sudo dnf install wayland-protocols-devel (Fedora)"
+    exit 1
+fi
 
 echo -e "${GREEN}✓ All dependencies found${NC}"
 
@@ -59,6 +67,12 @@ if [ ! -d "godot-cpp/gdextension" ]; then
 fi
 
 echo -e "${GREEN}✓ godot-cpp submodule initialized${NC}"
+
+# Generate Wayland protocol headers if needed
+if [ ! -f "protocols/xdg-shell-protocol.h" ]; then
+    echo -e "\n${YELLOW}Generating Wayland protocol headers...${NC}"
+    ./generate_protocols.sh
+fi
 
 # Determine build target
 TARGET=${1:-template_debug}

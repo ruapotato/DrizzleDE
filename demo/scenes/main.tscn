@@ -1,0 +1,37 @@
+[gd_scene load_steps=4 format=3 uid="uid://bkqwx8yjnm7cp"]
+
+[ext_resource type="Script" path="res://demo/scripts/fps_camera.gd" id="1_fps_camera"]
+[ext_resource type="Script" path="res://demo/scripts/window_display.gd" id="2_window_display"]
+
+[sub_resource type="Environment" id="Environment_1"]
+background_mode = 1
+background_color = Color(0.1, 0.1, 0.15, 1)
+ambient_light_source = 2
+ambient_light_color = Color(1, 1, 1, 1)
+
+[node name="Main" type="Node3D"]
+
+[node name="WaylandCompositor" type="Node" parent="."]
+script = null
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_1")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 5, 0)
+shadow_enabled = true
+
+[node name="Camera" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 3)
+script = ExtResource("1_fps_camera")
+
+[node name="WindowDisplay" type="Node3D" parent="."]
+script = ExtResource("2_window_display")
+
+[node name="Floor" type="MeshInstance3D" parent="."]
+transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
+mesh = null
+
+[node name="ReferencePlane" type="MeshInstance3D" parent="."]
+transform = Transform3D(5, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, -2)
+mesh = null

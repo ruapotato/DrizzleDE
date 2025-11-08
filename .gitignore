@@ -33,5 +33,13 @@ Thumbs.db
 *.lib
 *.a
 
-# godot-cpp build files
+# godot-cpp build files (submodule - don't commit build artifacts)
 godot-cpp/bin/
+godot-cpp/gen/
+godot-cpp/.sconsign.dblite
+godot-cpp/.scons_cache/
+godot-cpp/**/*.o
+godot-cpp/**/*.os
+
+# Generated protocol files
+protocols/
