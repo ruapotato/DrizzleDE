@@ -1,7 +1,9 @@
-[gd_scene load_steps=6 format=3 uid="uid://bkqwx8yjnm7cp"]
+[gd_scene load_steps=9 format=3 uid="uid://bkqwx8yjnm7cp"]
 
 [ext_resource type="Script" path="res://demo/scripts/fps_camera.gd" id="1_fps_camera"]
 [ext_resource type="Script" path="res://demo/scripts/window_display.gd" id="2_window_display"]
+[ext_resource type="Script" path="res://demo/scripts/window_interaction.gd" id="3_window_interaction"]
+[ext_resource type="Script" path="res://demo/scripts/inventory_menu.gd" id="4_inventory_menu"]
 
 [sub_resource type="Environment" id="Environment_1"]
 background_mode = 1
@@ -14,6 +16,9 @@ size = Vector2(10, 10)
 
 [sub_resource type="QuadMesh" id="QuadMesh_1"]
 size = Vector2(2, 2)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
+albedo_color = Color(0.2, 0.2, 0.25, 1)
 
 [node name="Main" type="Node3D"]
 
@@ -29,13 +34,26 @@ shadow_enabled = true
 [node name="Camera" type="Camera3D" parent="."]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 3)
 script = ExtResource("1_fps_camera")
+window_interaction_path = NodePath("../WindowInteraction")
 
 [node name="WindowDisplay" type="Node3D" parent="."]
 script = ExtResource("2_window_display")
+compositor_path = NodePath("../X11Compositor")
+camera_path = NodePath("../Camera")
+
+[node name="WindowInteraction" type="Node3D" parent="."]
+script = ExtResource("3_window_interaction")
+camera_path = NodePath("../Camera")
+compositor_path = NodePath("../X11Compositor")
+
+[node name="InventoryMenu" type="CanvasLayer" parent="."]
+script = ExtResource("4_inventory_menu")
+compositor_path = NodePath("../X11Compositor")
 
 [node name="Floor" type="MeshInstance3D" parent="."]
 transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
 mesh = SubResource("PlaneMesh_1")
+surface_material_override/0 = SubResource("StandardMaterial3D_floor")
 
 [node name="ReferencePlane" type="MeshInstance3D" parent="."]
 transform = Transform3D(5, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, -2)
