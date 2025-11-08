@@ -737,13 +737,27 @@ void X11Compositor::send_mouse_motion(int window_id, int x, int y) {
     XFlush(display);
 }
 
-void X11Compositor::send_key_event(int window_id, int keycode, bool pressed) {
+void X11Compositor::send_key_event(int window_id, int godot_keycode, bool pressed) {
     auto it = windows.find(window_id);
     if (it == windows.end() || !display) {
         return;
     }
 
     X11Window *window = it->second;
+
+    // Convert Godot keycode to X11 keysym
+    // Godot keycodes for printable characters match Unicode/ASCII values
+    // For special keys, Godot uses KEY_* constants that often match X11 keysyms
+    KeySym keysym = godot_keycode;
+
+    // Convert keysym to keycode for this display
+    KeyCode x11_keycode = XKeysymToKeycode(display, keysym);
+
+    if (x11_keycode == 0) {
+        // Keycode not found - might be an unmapped key
+        UtilityFunctions::print("Warning: Cannot map Godot keycode ", godot_keycode, " to X11 keycode");
+        return;
+    }
 
     XEvent event;
     memset(&event, 0, sizeof(event));
@@ -758,7 +772,7 @@ void X11Compositor::send_key_event(int window_id, int keycode, bool pressed) {
     event.xkey.x_root = 0;
     event.xkey.y_root = 0;
     event.xkey.state = 0;
-    event.xkey.keycode = keycode;
+    event.xkey.keycode = x11_keycode;
     event.xkey.same_screen = True;
 
     XSendEvent(display, window->xwindow, True, KeyPressMask | KeyReleaseMask, &event);
