@@ -213,13 +213,17 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
     if parent_id != -1 and parent_id in window_quads:
         # This is a popup - position it relative to the parent window using actual X11 coordinates
         var parent_quad = window_quads[parent_id]
-        var parent_pos = parent_quad.global_position
+        var parent_pos_center = parent_quad.global_position
 
-        # Get actual X11 window positions (in pixels)
+        # Get parent and popup sizes
+        var parent_size = compositor.get_window_size(parent_id)
+        var popup_size = compositor.get_window_size(window_id)
+
+        # Get actual X11 window positions (in pixels) - these are TOP-LEFT corners
         var popup_pos_px = compositor.get_window_position(window_id)
         var parent_pos_px = compositor.get_window_position(parent_id)
 
-        # Calculate offset in pixels
+        # Calculate offset in pixels (from parent top-left to popup top-left)
         var offset_x_px = popup_pos_px.x - parent_pos_px.x
         var offset_y_px = popup_pos_px.y - parent_pos_px.y
 
@@ -231,10 +235,35 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
             0
         )
 
+        # The parent's 3D position is at its CENTER, but X11 coords are for TOP-LEFT
+        # We need to:
+        # 1. Calculate parent's top-left in world coords
+        # 2. Add the pixel offset
+        # 3. Convert back to center position for the popup
+
+        var parent_width_world = float(parent_size.x) / pixels_per_world_unit
+        var parent_height_world = float(parent_size.y) / pixels_per_world_unit
+
+        var popup_width_world = float(popup_size.x) / pixels_per_world_unit
+        var popup_height_world = float(popup_size.y) / pixels_per_world_unit
+
+        # Parent's top-left corner in world coordinates
+        var parent_topleft_world = parent_pos_center - Vector3(parent_width_world / 2, parent_height_world / 2, 0)
+
+        # Popup's top-left corner = parent's top-left + offset
+        var popup_topleft_world = parent_topleft_world + offset_world
+
+        # Popup's center = top-left + half size
+        var popup_center_world = popup_topleft_world + Vector3(popup_width_world / 2, popup_height_world / 2, 0)
+
         print("  Positioning popup window ", window_id, " relative to parent ", parent_id)
-        print("    Parent pos (pixels): ", parent_pos_px, ", Popup pos (pixels): ", popup_pos_px)
-        print("    Offset (pixels): ", offset_x_px, ", ", offset_y_px, " -> World: ", offset_world)
-        return parent_pos + offset_world
+        print("    Parent pos (pixels): ", parent_pos_px, " size: ", parent_size)
+        print("    Popup pos (pixels): ", popup_pos_px, " size: ", popup_size)
+        print("    Offset (pixels): ", offset_x_px, ", ", offset_y_px)
+        print("    Parent center (world): ", parent_pos_center, " -> topleft: ", parent_topleft_world)
+        print("    Popup topleft (world): ", popup_topleft_world, " -> center: ", popup_center_world)
+
+        return popup_center_world
 
     # If this app already has windows, spawn near them
     if app_class != "" and app_class in app_zones:
