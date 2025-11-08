@@ -719,7 +719,19 @@ Vector2i X11Compositor::get_window_position(int window_id) {
         return Vector2i(0, 0);
     }
     X11Window *window = it->second;
-    return Vector2i(window->x, window->y);
+
+    // Get absolute position relative to root window using XTranslateCoordinates
+    // This is more reliable than XWindowAttributes x,y which can be relative to parent
+    ::Window child_return;
+    int x_return, y_return;
+
+    XTranslateCoordinates(display, window->xwindow, root_window,
+                         0, 0, &x_return, &y_return, &child_return);
+
+    UtilityFunctions::print("Window ", window_id, " position: attrs=(", window->x, ",", window->y,
+                           ") absolute=(", x_return, ",", y_return, ")");
+
+    return Vector2i(x_return, y_return);
 }
 
 // Input handling methods
