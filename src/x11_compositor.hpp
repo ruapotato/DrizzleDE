@@ -58,7 +58,7 @@ private:
 
     // Window tracking
     std::map<int, X11Window*> windows;
-    std::map<X11WindowHandle, int> xwindow_to_id;  // Reverse lookup
+    std::map<unsigned long, int> xwindow_to_id;  // Reverse lookup (X11 Window is unsigned long)
     int next_window_id;
 
     // State
