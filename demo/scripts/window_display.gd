@@ -1,6 +1,6 @@
 extends Node3D
 
-## Displays Wayland windows on 3D quads in the scene
+## Displays X11 windows on 3D quads in the scene
 
 @export var compositor_path: NodePath
 @export var window_spacing := 1.5
@@ -14,14 +14,14 @@ func _ready():
     if compositor_path:
         compositor = get_node(compositor_path)
     else:
-        # Try to find WaylandCompositor in the scene
-        compositor = get_node_or_null("/root/Main/WaylandCompositor")
+        # Try to find X11Compositor in the scene
+        compositor = get_node_or_null("/root/Main/X11Compositor")
 
     if not compositor:
-        push_error("WaylandCompositor not found!")
+        push_error("X11Compositor not found!")
         return
 
-    print("WindowDisplay ready, connected to compositor: ", compositor.get_socket_name())
+    print("WindowDisplay ready, connected to compositor: ", compositor.get_display_name())
 
 func _process(delta):
     if not compositor or not compositor.is_initialized():
@@ -74,10 +74,15 @@ func create_window_quad(window_id: int, index: int) -> MeshInstance3D:
     var material = StandardMaterial3D.new()
     material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+    material.albedo_color = Color(1, 0, 1, 1)  # Magenta placeholder - easy to spot
     quad.material_override = material
 
-    # Position the quad
-    quad.position = Vector3(index * window_spacing, 0, -2)
+    # Position the quad - in front of the reference plane
+    # Camera is at z=3, looking at -Z. Reference plane is at z=-2.
+    # Put windows at z=-1 (closer to camera than the reference plane)
+    quad.position = Vector3(index * window_spacing, 1.5, -1)
+
+    print("Created window quad ", window_id, " at position ", quad.position)
 
     return quad
 

@@ -1,4 +1,4 @@
-[gd_scene load_steps=4 format=3 uid="uid://bkqwx8yjnm7cp"]
+[gd_scene load_steps=6 format=3 uid="uid://bkqwx8yjnm7cp"]
 
 [ext_resource type="Script" path="res://demo/scripts/fps_camera.gd" id="1_fps_camera"]
 [ext_resource type="Script" path="res://demo/scripts/window_display.gd" id="2_window_display"]
@@ -9,10 +9,15 @@ background_color = Color(0.1, 0.1, 0.15, 1)
 ambient_light_source = 2
 ambient_light_color = Color(1, 1, 1, 1)
 
+[sub_resource type="PlaneMesh" id="PlaneMesh_1"]
+size = Vector2(10, 10)
+
+[sub_resource type="QuadMesh" id="QuadMesh_1"]
+size = Vector2(2, 2)
+
 [node name="Main" type="Node3D"]
 
-[node name="WaylandCompositor" type="Node" parent="."]
-script = null
+[node name="X11Compositor" type="X11Compositor" parent="."]
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_1")
@@ -30,8 +35,8 @@ script = ExtResource("2_window_display")
 
 [node name="Floor" type="MeshInstance3D" parent="."]
 transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
-mesh = null
+mesh = SubResource("PlaneMesh_1")
 
 [node name="ReferencePlane" type="MeshInstance3D" parent="."]
 transform = Transform3D(5, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, -2)
-mesh = null
+mesh = SubResource("QuadMesh_1")

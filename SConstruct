@@ -4,18 +4,17 @@ import sys
 
 env = SConscript("godot-cpp/SConstruct")
 
-# Add wlroots and wayland dependencies
-env.Append(CPPPATH=["src/", "protocols/"])
-env.Append(CPPDEFINES=["WLR_USE_UNSTABLE"])
-env.ParseConfig("pkg-config --cflags --libs wlroots wayland-server pixman-1")
+# Add X11 compositor dependencies
+env.Append(CPPPATH=["src/"])
+env.ParseConfig("pkg-config --cflags --libs x11 xcomposite xdamage xfixes xrender")
 
-# Our source files (C++ and C)
-sources = Glob("src/*.cpp") + Glob("src/*.c") + Glob("protocols/*.c")
+# Our source files (C++ only, no protocols needed for X11)
+sources = Glob("src/*.cpp")
 
 # Build the library
 if env["platform"] == "linux":
     library = env.SharedLibrary(
-        "addons/wayland_compositor/bin/libwayland_compositor{}{}".format(
+        "addons/x11_compositor/bin/libx11_compositor{}{}".format(
             env["suffix"], env["SHLIBSUFFIX"]
         ),
         source=sources,

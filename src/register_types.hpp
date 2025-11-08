@@ -1,11 +1,11 @@
-#ifndef WAYLAND_COMPOSITOR_REGISTER_TYPES_HPP
-#define WAYLAND_COMPOSITOR_REGISTER_TYPES_HPP
+#ifndef X11_COMPOSITOR_REGISTER_TYPES_HPP
+#define X11_COMPOSITOR_REGISTER_TYPES_HPP
 
 #include <godot_cpp/core/class_db.hpp>
 
 using namespace godot;
 
-void initialize_wayland_compositor_module(ModuleInitializationLevel p_level);
-void uninitialize_wayland_compositor_module(ModuleInitializationLevel p_level);
+void initialize_x11_compositor_module(ModuleInitializationLevel p_level);
+void uninitialize_x11_compositor_module(ModuleInitializationLevel p_level);
 
-#endif // WAYLAND_COMPOSITOR_REGISTER_TYPES_HPP
+#endif // X11_COMPOSITOR_REGISTER_TYPES_HPP
