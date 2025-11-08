@@ -31,7 +31,10 @@ var can_select := false
 
 # Mouse tracking
 var window_mouse_pos := Vector2.ZERO
-var mouse_cursor: Sprite3D = null
+var mouse_sphere: MeshInstance3D = null
+var click_tween: Tween = null
+var last_raycast_hit := Vector3.ZERO
+var last_raycast_hit_valid := false
 
 func _ready():
 	if camera_path:
@@ -49,32 +52,37 @@ func _ready():
 	if not compositor:
 		push_error("Window interaction: Compositor not found!")
 
-	create_mouse_cursor()
+	create_mouse_sphere()
 
-func create_mouse_cursor():
-	# Create a 3D sprite for the mouse cursor
-	mouse_cursor = Sprite3D.new()
-	add_child(mouse_cursor)
+	print("WindowInteraction initialized!")
+	print("  Camera: ", camera)
+	print("  Compositor: ", compositor)
 
-	# Create a simple cursor texture (white circle with black outline)
-	var cursor_img = Image.create(16, 16, false, Image.FORMAT_RGBA8)
-	cursor_img.fill(Color(0, 0, 0, 0))
+func create_mouse_sphere():
+	# Create a 3D sphere for the mouse cursor
+	mouse_sphere = MeshInstance3D.new()
+	add_child(mouse_sphere)
 
-	# Draw a simple arrow cursor
-	for y in range(16):
-		for x in range(16):
-			if x < 8 and y < 12 and x <= y:
-				if x == 0 or y == 0 or x == y:
-					cursor_img.set_pixel(x, y, Color.BLACK)
-				else:
-					cursor_img.set_pixel(x, y, Color.WHITE)
+	# Create sphere mesh
+	var sphere_mesh = SphereMesh.new()
+	sphere_mesh.radius = 0.02
+	sphere_mesh.height = 0.04
+	sphere_mesh.radial_segments = 16
+	sphere_mesh.rings = 8
+	mouse_sphere.mesh = sphere_mesh
 
-	var cursor_texture = ImageTexture.create_from_image(cursor_img)
-	mouse_cursor.texture = cursor_texture
-	mouse_cursor.pixel_size = 0.01
-	mouse_cursor.billboard = SpriteBase3D.BILLBOARD_DISABLED
-	mouse_cursor.visible = false
-	mouse_cursor.render_priority = 10  # Draw on top
+	# Bright material so it's always visible
+	var material = StandardMaterial3D.new()
+	material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	material.albedo_color = Color(1.0, 0.3, 0.3, 1.0)  # Red
+	material.emission_enabled = true
+	material.emission = Color(1.0, 0.3, 0.3)
+	material.emission_energy_multiplier = 2.0
+	mouse_sphere.material_override = material
+
+	mouse_sphere.visible = true
+
+	print("Mouse sphere created and visible")
 
 func _process(delta):
 	if not camera or not compositor or not compositor.is_initialized():
@@ -92,16 +100,36 @@ func _process(delta):
 	var result = space_state.intersect_ray(query)
 
 	if result:
+		last_raycast_hit = result.position
+		last_raycast_hit_valid = true
+
+		# Always position mouse sphere at raycast hit
+		mouse_sphere.global_position = last_raycast_hit
+		mouse_sphere.visible = true
+
 		var collider = result.collider
-		if collider is StaticBody3D and collider.has_meta("window_id"):
-			var window_id = collider.get_meta("window_id")
-			var quad = collider.get_parent() as MeshInstance3D
 
-			if quad and window_id != -1:
-				handle_window_raycast_hit(window_id, quad, result.position, delta)
-				return
+		# Debug what we hit
+		if collider is StaticBody3D:
+			if collider.has_meta("window_id"):
+				var window_id = collider.get_meta("window_id")
+				var quad = collider.get_parent() as MeshInstance3D
 
-	# No hit - clear hover state (but keep selection)
+				if quad and window_id != -1:
+					handle_window_raycast_hit(window_id, quad, result.position, delta)
+					return
+			else:
+				print_debug("Hit StaticBody3D but no window_id metadata")
+		else:
+			print_debug("Hit non-StaticBody3D: ", collider.get_class())
+
+	else:
+		# No hit - place sphere far in front of camera
+		last_raycast_hit_valid = false
+		mouse_sphere.global_position = from + (-camera.global_transform.basis.z * 3.0)
+		mouse_sphere.visible = true
+
+	# No window hit - clear hover state (but keep selection)
 	if current_state == WindowState.HOVERED:
 		clear_hover()
 
@@ -118,9 +146,6 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 			clamp(tex_x, 0, window_size.x - 1),
 			clamp(tex_y, 0, window_size.y - 1)
 		)
-
-		# Update cursor position
-		update_cursor_position(quad, local_pos)
 
 	# Forward mouse motion to window
 	if window_id != -1:
@@ -139,26 +164,20 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 		WindowState.HOVERED:
 			if window_id != hovered_window_id:
 				# Switched to different window
+				print("Switched hover from window ", hovered_window_id, " to ", window_id)
 				clear_hover()
 				start_hover(window_id, quad)
 			else:
 				# Continue hovering - increment timer
 				hover_timer += delta
-				if hover_timer >= hover_delay:
+				if hover_timer >= hover_delay and not can_select:
 					can_select = true
 					update_hover_visual(true)  # Show "ready to select"
+					print("Window ", window_id, " ready to select (hovered ", hover_timer, "s)")
 
 		WindowState.SELECTED:
 			# Already selected, just update mouse position
-			# Selected window doesn't change on hover
 			pass
-
-func update_cursor_position(quad: MeshInstance3D, local_pos: Vector3):
-	if mouse_cursor:
-		# Position cursor on the quad surface
-		mouse_cursor.global_position = quad.global_transform * local_pos
-		mouse_cursor.global_position += quad.global_transform.basis.z * -0.01  # Offset slightly forward
-		mouse_cursor.visible = (current_state == WindowState.HOVERED)
 
 func start_hover(window_id: int, quad: MeshInstance3D):
 	current_state = WindowState.HOVERED
@@ -171,20 +190,20 @@ func start_hover(window_id: int, quad: MeshInstance3D):
 
 	var window_title = compositor.get_window_title(window_id)
 	var window_class = compositor.get_window_class(window_id)
-	print("Hovering: ", window_title, " [", window_class, "]")
+	print(">>> HOVERING window ", window_id, ": ", window_title, " [", window_class, "]")
+	print("    Hover for ", hover_delay, "s then click to select")
 
 func clear_hover():
 	if hovered_window_quad and current_state == WindowState.HOVERED:
 		remove_hover_highlight(hovered_window_quad)
+
+	print("Hover cleared on window ", hovered_window_id)
 
 	current_state = WindowState.NONE
 	hovered_window_id = -1
 	hovered_window_quad = null
 	hover_timer = 0.0
 	can_select = false
-
-	if mouse_cursor:
-		mouse_cursor.visible = false
 
 func select_window(window_id: int, quad: MeshInstance3D):
 	# Clear hover state
@@ -202,28 +221,40 @@ func select_window(window_id: int, quad: MeshInstance3D):
 	add_selection_glow(quad)
 
 	var window_title = compositor.get_window_title(window_id)
-	print("SELECTED: ", window_title, " - Press ESC to release")
+	print("╔═══════════════════════════════════════╗")
+	print("║ WINDOW SELECTED!                      ║")
+	print("║ ", window_title.pad_to(37), "║")
+	print("║                                       ║")
+	print("║ Keyboard input now goes to this window ║")
+	print("║ Press ESC to release                  ║")
+	print("╚═══════════════════════════════════════╝")
 
 func deselect_window():
 	if selected_window_quad:
 		remove_selection_glow(selected_window_quad)
 
+	print(">>> Window ", selected_window_id, " DESELECTED")
+	print("    Camera controls restored")
+
 	current_state = WindowState.NONE
 	selected_window_id = -1
 	selected_window_quad = null
 
-	print("Window deselected")
-
 func _input(event):
 	# Handle selection toggle
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+		print_debug("Mouse click - State: ", ["NONE", "HOVERED", "SELECTED"][current_state])
+
 		if current_state == WindowState.HOVERED and can_select:
 			# Select the hovered window
+			print("Click to SELECT window ", hovered_window_id)
 			select_window(hovered_window_id, hovered_window_quad)
+			pulse_click()
 			get_viewport().set_input_as_handled()
 			return
 		elif current_state == WindowState.SELECTED:
 			# Click on selected window - forward to X11
+			print("Forwarding click to window ", selected_window_id, " at (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
 			compositor.send_mouse_button(
 				selected_window_id,
 				event.button_index,
@@ -231,13 +262,17 @@ func _input(event):
 				int(window_mouse_pos.x),
 				int(window_mouse_pos.y)
 			)
+			pulse_click()
 			get_viewport().set_input_as_handled()
 			return
+		else:
+			print("Click ignored - not ready (can_select=", can_select, ", hover_timer=", hover_timer, ")")
 
 	# Forward mouse buttons to hovered/selected window
 	if event is InputEventMouseButton:
 		var target_id = selected_window_id if current_state == WindowState.SELECTED else hovered_window_id
 		if target_id != -1:
+			print("Forwarding mouse button ", event.button_index, " (", "pressed" if event.pressed else "released", ") to window ", target_id)
 			compositor.send_mouse_button(
 				target_id,
 				event.button_index,
@@ -265,12 +300,22 @@ func _input(event):
 			   event.is_action("jump") or event.is_action("crouch"):
 				return
 
+			print("Forwarding key ", event.keycode, " (", event.as_text(), ") to window ", selected_window_id)
 			compositor.send_key_event(
 				selected_window_id,
 				event.keycode,
 				event.pressed
 			)
 			get_viewport().set_input_as_handled()
+
+func pulse_click():
+	# Animate sphere pulse when clicking
+	if click_tween:
+		click_tween.kill()
+
+	click_tween = create_tween()
+	click_tween.tween_property(mouse_sphere, "scale", Vector3(2.0, 2.0, 2.0), 0.1)
+	click_tween.tween_property(mouse_sphere, "scale", Vector3(1.0, 1.0, 1.0), 0.2)
 
 ## Visual feedback
 
@@ -281,12 +326,14 @@ func add_hover_highlight(quad: MeshInstance3D):
 			quad.set_meta("original_albedo", mat.albedo_color)
 		# Subtle highlight
 		mat.albedo_color = Color(0.95, 0.95, 1.0, 1.0)
+		print("  Added hover highlight")
 
 func remove_hover_highlight(quad: MeshInstance3D):
 	if quad.material_override and quad.material_override is StandardMaterial3D:
 		var mat = quad.material_override as StandardMaterial3D
 		if quad.has_meta("original_albedo"):
 			mat.albedo_color = quad.get_meta("original_albedo")
+		print("  Removed hover highlight")
 
 func update_hover_visual(ready: bool):
 	if not hovered_window_quad:
@@ -297,6 +344,7 @@ func update_hover_visual(ready: bool):
 		if ready:
 			# Brighter when ready to select
 			mat.albedo_color = Color(0.9, 1.0, 0.9, 1.0)  # Green tint
+			print("  Window ready to select - GREEN")
 		else:
 			mat.albedo_color = Color(0.95, 0.95, 1.0, 1.0)
 
@@ -308,7 +356,7 @@ func add_selection_glow(quad: MeshInstance3D):
 
 	# Create a slightly larger quad for the border
 	var outline_mesh = QuadMesh.new()
-	outline_mesh.size = Vector2(1.05, 1.05)  # 5% larger
+	outline_mesh.size = Vector2(1.1, 1.1)  # 10% larger for visible border
 	outline.mesh = outline_mesh
 
 	# Glowing material
@@ -317,16 +365,19 @@ func add_selection_glow(quad: MeshInstance3D):
 	glow_mat.albedo_color = Color(0.3, 0.8, 1.0, 1.0)  # Cyan glow
 	glow_mat.emission_enabled = true
 	glow_mat.emission = Color(0.3, 0.8, 1.0)
-	glow_mat.emission_energy_multiplier = 2.0
+	glow_mat.emission_energy_multiplier = 3.0
 	outline.material_override = glow_mat
 
 	# Position slightly behind the window
-	outline.position.z = 0.001
+	outline.position.z = 0.005
+
+	print("  Added cyan selection glow border")
 
 func remove_selection_glow(quad: MeshInstance3D):
 	var glow = quad.get_node_or_null("SelectionGlow")
 	if glow:
 		glow.queue_free()
+		print("  Removed selection glow")
 
 	# Restore original color
 	if quad.material_override and quad.material_override is StandardMaterial3D:
