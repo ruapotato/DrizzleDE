@@ -129,29 +129,31 @@ int X11Compositor::find_available_display() {
 }
 
 bool X11Compositor::launch_xephyr(int disp_num) {
-    UtilityFunctions::print("Launching Xephyr on display :", disp_num);
+    UtilityFunctions::print("Launching Xvfb (headless X server) on display :", disp_num);
 
     pid_t pid = fork();
 
     if (pid < 0) {
-        UtilityFunctions::printerr("Failed to fork for Xephyr");
+        UtilityFunctions::printerr("Failed to fork for Xvfb");
         return false;
     }
 
     if (pid == 0) {
-        // Child process - launch Xephyr
+        // Child process - launch Xvfb (headless X server)
         char display_arg[32];
+        char screen_arg[64];
         snprintf(display_arg, sizeof(display_arg), ":%d", disp_num);
+        snprintf(screen_arg, sizeof(screen_arg), "1280x720x24");
 
-        // Launch Xephyr with reasonable defaults
+        // Launch Xvfb with reasonable defaults
         // -ac = disable access control (allow all connections)
-        // -screen = set screen size
-        // -resizeable = allow window resizing
-        execlp("Xephyr", "Xephyr",
+        // -screen 0 WxHxD = set screen 0 size and depth
+        // +extension COMPOSITE = enable Composite extension explicitly
+        execlp("Xvfb", "Xvfb",
                display_arg,
                "-ac",
-               "-screen", "1280x720",
-               "-resizeable",
+               "-screen", "0", screen_arg,
+               "+extension", "Composite",
                nullptr);
 
         // If execlp returns, it failed
@@ -161,8 +163,8 @@ bool X11Compositor::launch_xephyr(int disp_num) {
     // Parent process
     xephyr_pid = pid;
 
-    // Wait a bit for Xephyr to start
-    UtilityFunctions::print("Waiting for Xephyr to start...");
+    // Wait a bit for Xvfb to start
+    UtilityFunctions::print("Waiting for Xvfb to start...");
 
     // Try to connect for up to 5 seconds
     for (int attempts = 0; attempts < 50; attempts++) {
@@ -174,22 +176,22 @@ bool X11Compositor::launch_xephyr(int disp_num) {
 
         if (test_display) {
             XCloseDisplay(test_display);
-            UtilityFunctions::print("Xephyr started successfully");
+            UtilityFunctions::print("Xvfb started successfully");
             return true;
         }
 
-        // Check if Xephyr process died
+        // Check if Xvfb process died
         int status;
         if (waitpid(pid, &status, WNOHANG) > 0) {
-            UtilityFunctions::printerr("Xephyr process died");
+            UtilityFunctions::printerr("Xvfb process died");
             xephyr_pid = 0;
             return false;
         }
     }
 
-    UtilityFunctions::printerr("Timeout waiting for Xephyr to start");
+    UtilityFunctions::printerr("Timeout waiting for Xvfb to start");
 
-    // Kill the Xephyr process
+    // Kill the Xvfb process
     if (xephyr_pid > 0) {
         kill(xephyr_pid, SIGTERM);
         waitpid(xephyr_pid, nullptr, 0);
@@ -216,18 +218,18 @@ bool X11Compositor::initialize() {
 
     UtilityFunctions::print("Using display number: ", display_number);
 
-    // Launch Xephyr on that display
+    // Launch Xvfb on that display
     if (!launch_xephyr(display_number)) {
-        UtilityFunctions::printerr("Failed to launch Xephyr");
+        UtilityFunctions::printerr("Failed to launch Xvfb");
         return false;
     }
 
-    // Connect to our Xephyr display
+    // Connect to our Xvfb display
     char display_str[32];
     snprintf(display_str, sizeof(display_str), ":%d", display_number);
     display = XOpenDisplay(display_str);
     if (!display) {
-        UtilityFunctions::printerr("Failed to connect to Xephyr display");
+        UtilityFunctions::printerr("Failed to connect to Xvfb display");
         cleanup();
         return false;
     }
@@ -235,7 +237,7 @@ bool X11Compositor::initialize() {
     screen = DefaultScreen(display);
     root_window = RootWindow(display, screen);
 
-    UtilityFunctions::print("Connected to Xephyr display: ", DisplayString(display));
+    UtilityFunctions::print("Connected to Xvfb display: ", DisplayString(display));
 
     // Check for Composite extension
     int composite_major, composite_minor;
@@ -638,9 +640,9 @@ void X11Compositor::cleanup() {
         display = nullptr;
     }
 
-    // Kill Xephyr process
+    // Kill Xvfb process
     if (xephyr_pid > 0) {
-        UtilityFunctions::print("Terminating Xephyr (PID ", xephyr_pid, ")");
+        UtilityFunctions::print("Terminating Xvfb (PID ", xephyr_pid, ")");
         kill(xephyr_pid, SIGTERM);
 
         // Wait for it to exit (with timeout)
