@@ -25,6 +25,7 @@ X11Compositor::X11Compositor() :
     xephyr_pid(0),
     composite_available(false),
     damage_available(false),
+    xtest_available(false),
     next_window_id(1),
     initialized(false) {
 }
@@ -278,6 +279,18 @@ bool X11Compositor::initialize() {
     } else {
         UtilityFunctions::print("Damage extension not available (will use polling instead)");
         damage_available = false;
+    }
+
+    // Check for XTest extension (for realistic input events)
+    int xtest_event_base, xtest_error_base;
+    int xtest_major, xtest_minor;
+    if (XTestQueryExtension(display, &xtest_event_base, &xtest_error_base, &xtest_major, &xtest_minor)) {
+        UtilityFunctions::print("XTest extension available: ", xtest_major, ".", xtest_minor);
+        UtilityFunctions::print("  Will use XTest for realistic input events (bypasses synthetic event detection)");
+        xtest_available = true;
+    } else {
+        UtilityFunctions::print("XTest extension not available (input may not work in some apps)");
+        xtest_available = false;
     }
 
     // Select events on root window to track window creation/destruction
@@ -749,30 +762,44 @@ void X11Compositor::send_mouse_button(int window_id, int button, bool pressed, i
     XTranslateCoordinates(display, window->xwindow, root_window,
                          0, 0, &win_x_root, &win_y_root, &child_return);
 
+    int root_x = win_x_root + x;
+    int root_y = win_y_root + y;
+
     UtilityFunctions::print("[X11] Mouse button ", pressed ? "PRESS" : "RELEASE", " to window ", window_id,
                            " (parent:", window->parent_window_id, ")",
                            " - window_pos=(", x, ",", y, ")",
                            " win_absolute=(", win_x_root, ",", win_y_root, ")",
-                           " root_coords=(", win_x_root + x, ",", win_y_root + y, ")");
+                           " root_coords=(", root_x, ",", root_y, ")",
+                           " using ", xtest_available ? "XTest" : "XSendEvent");
 
-    XEvent event;
-    memset(&event, 0, sizeof(event));
+    if (xtest_available) {
+        // Use XTest extension for realistic events (bypasses synthetic event detection)
+        // First move the pointer to the correct position
+        XTestFakeMotionEvent(display, screen, root_x, root_y, CurrentTime);
+        // Then send the button event
+        XTestFakeButtonEvent(display, button, pressed ? True : False, CurrentTime);
+        XFlush(display);
+    } else {
+        // Fallback to XSendEvent (may be ignored by some apps like Firefox popups)
+        XEvent event;
+        memset(&event, 0, sizeof(event));
 
-    event.type = pressed ? ButtonPress : ButtonRelease;
-    event.xbutton.window = window->xwindow;
-    event.xbutton.root = root_window;
-    event.xbutton.subwindow = None;
-    event.xbutton.time = CurrentTime;
-    event.xbutton.x = x;
-    event.xbutton.y = y;
-    event.xbutton.x_root = win_x_root + x;  // Root coordinates = window position + window-relative coords
-    event.xbutton.y_root = win_y_root + y;
-    event.xbutton.state = 0;
-    event.xbutton.button = button;
-    event.xbutton.same_screen = True;
+        event.type = pressed ? ButtonPress : ButtonRelease;
+        event.xbutton.window = window->xwindow;
+        event.xbutton.root = root_window;
+        event.xbutton.subwindow = None;
+        event.xbutton.time = CurrentTime;
+        event.xbutton.x = x;
+        event.xbutton.y = y;
+        event.xbutton.x_root = root_x;
+        event.xbutton.y_root = root_y;
+        event.xbutton.state = 0;
+        event.xbutton.button = button;
+        event.xbutton.same_screen = True;
 
-    XSendEvent(display, window->xwindow, True, ButtonPressMask | ButtonReleaseMask, &event);
-    XFlush(display);
+        XSendEvent(display, window->xwindow, True, ButtonPressMask | ButtonReleaseMask, &event);
+        XFlush(display);
+    }
 }
 
 void X11Compositor::send_mouse_motion(int window_id, int x, int y) {
@@ -789,24 +816,34 @@ void X11Compositor::send_mouse_motion(int window_id, int x, int y) {
     XTranslateCoordinates(display, window->xwindow, root_window,
                          0, 0, &win_x_root, &win_y_root, &child_return);
 
-    XEvent event;
-    memset(&event, 0, sizeof(event));
+    int root_x = win_x_root + x;
+    int root_y = win_y_root + y;
 
-    event.type = MotionNotify;
-    event.xmotion.window = window->xwindow;
-    event.xmotion.root = root_window;
-    event.xmotion.subwindow = None;
-    event.xmotion.time = CurrentTime;
-    event.xmotion.x = x;
-    event.xmotion.y = y;
-    event.xmotion.x_root = win_x_root + x;  // Root coordinates = window position + window-relative coords
-    event.xmotion.y_root = win_y_root + y;
-    event.xmotion.state = 0;
-    event.xmotion.is_hint = NotifyNormal;
-    event.xmotion.same_screen = True;
+    if (xtest_available) {
+        // Use XTest extension for realistic mouse motion
+        XTestFakeMotionEvent(display, screen, root_x, root_y, CurrentTime);
+        XFlush(display);
+    } else {
+        // Fallback to XSendEvent
+        XEvent event;
+        memset(&event, 0, sizeof(event));
 
-    XSendEvent(display, window->xwindow, True, PointerMotionMask, &event);
-    XFlush(display);
+        event.type = MotionNotify;
+        event.xmotion.window = window->xwindow;
+        event.xmotion.root = root_window;
+        event.xmotion.subwindow = None;
+        event.xmotion.time = CurrentTime;
+        event.xmotion.x = x;
+        event.xmotion.y = y;
+        event.xmotion.x_root = root_x;
+        event.xmotion.y_root = root_y;
+        event.xmotion.state = 0;
+        event.xmotion.is_hint = NotifyNormal;
+        event.xmotion.same_screen = True;
+
+        XSendEvent(display, window->xwindow, True, PointerMotionMask, &event);
+        XFlush(display);
+    }
 }
 
 void X11Compositor::send_key_event(int window_id, int godot_keycode, bool pressed) {

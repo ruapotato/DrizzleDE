@@ -10,6 +10,7 @@
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/Xdamage.h>
 #include <X11/extensions/Xrender.h>
+#include <X11/extensions/XTest.h>
 
 // Typedef X11 types immediately after X11 headers, BEFORE Godot headers
 typedef ::Window X11WindowHandle;
@@ -60,6 +61,9 @@ private:
     int damage_event_base;
     int damage_error_base;
     bool damage_available;
+
+    // XTest extension (for realistic input events)
+    bool xtest_available;
 
     // Window tracking
     std::map<int, X11Window*> windows;
