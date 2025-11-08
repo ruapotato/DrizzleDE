@@ -1,6 +1,7 @@
 # Godot 4+ specific ignores
 .godot/
 *.import
+*.uid
 
 # Godot binary
 Godot_v*.x86_64
@@ -9,7 +10,7 @@ Godot_v*.x86_64
 *.app
 
 # Build artifacts
-addons/wayland_compositor/bin/*.so
+addons/*/bin/*.so
 *.o
 *.os
 .sconsign.dblite
@@ -43,3 +44,9 @@ godot-cpp/**/*.os
 
 # Generated protocol files
 protocols/
+
+# Test and temporary files
+test_*
+*.old
+CURRENT_STATUS.md
+TESTING.md
