@@ -288,12 +288,45 @@ func deselect_window():
 	if selected_window_quad:
 		remove_selection_glow(selected_window_quad)
 
+	# Check if the selected window has a parent - if so, try to switch to parent instead
+	var parent_id = -1
+	if selected_window_id != -1:
+		parent_id = compositor.get_parent_window_id(selected_window_id)
+
 	print(">>> Window ", selected_window_id, " DESELECTED")
+
+	# If this window has a parent (e.g., popup menu), try to switch to the parent
+	if parent_id != -1:
+		print("    Switching selection to parent window ", parent_id)
+		# Find the parent window quad
+		var window_ids = compositor.get_window_ids()
+		if parent_id in window_ids:
+			# Find the quad for the parent window
+			var parent_quad = find_window_quad(parent_id)
+			if parent_quad:
+				select_window(parent_id, parent_quad)
+				return  # Don't fully deselect, we switched to parent
+
 	print("    Camera controls restored")
 
 	current_state = WindowState.NONE
 	selected_window_id = -1
 	selected_window_quad = null
+
+# Helper function to find a window quad by window ID
+func find_window_quad(window_id: int) -> MeshInstance3D:
+	# Search the WindowDisplay node for the quad
+	var window_display = get_node_or_null("../WindowDisplay")
+	if not window_display:
+		return null
+
+	# Iterate through children to find the quad with matching window_id metadata
+	for child in window_display.get_children():
+		if child is MeshInstance3D and child.has_meta("window_id"):
+			if child.get_meta("window_id") == window_id:
+				return child
+
+	return null
 
 func _input(event):
 	# Handle mouse button events

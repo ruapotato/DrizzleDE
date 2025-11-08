@@ -72,18 +72,27 @@ Built on proven technologies:
 
 ## Current Status
 
-🚧 **Early Development** - Building core compositor functionality
+🚧 **Early Development** - Core compositor functionality working!
 
 - ✅ Project architecture defined
 - ✅ GDExtension with X11/Xvfb integration
 - ✅ Automatic Xvfb launching and management (headless operation)
 - ✅ Window tracking and capture via Composite extension
 - ✅ Multiple window rendering to 3D textures
-- ⬜ Input handling (mouse/keyboard forwarding to windows)
+- ✅ **Full input handling** (mouse/keyboard forwarding with XTest)
+- ✅ **Spatial window management** (popups positioned relative to parents)
+- ✅ **Interactive window selection** (raycast-based with hover/select states)
 - ⬜ Building system for placing structures
 - ⬜ Window mounting to surfaces
 - ⬜ World save/load system
 - ⬜ Polish and optimization
+
+### Recent Achievements
+
+- **XTest Integration**: Realistic input events that bypass synthetic event detection (fixes Firefox popup menus!)
+- **Popup Window Support**: Transient windows (menus, dialogs) positioned correctly relative to parent windows
+- **Spatial Organization**: Windows grouped by application class with intelligent placement
+- **Full Keyboard Support**: All special keys, modifiers, and text input working correctly
 
 ## Requirements
 
@@ -102,7 +111,7 @@ Built on proven technologies:
 sudo dnf install scons gcc-c++ pkgconfig \
     xorg-x11-server-Xvfb \
     libX11-devel libXcomposite-devel libXdamage-devel \
-    libXfixes-devel libXrender-devel
+    libXfixes-devel libXrender-devel libXtst-devel
 ```
 
 #### Ubuntu / Debian
@@ -111,7 +120,7 @@ sudo dnf install scons gcc-c++ pkgconfig \
 sudo apt install scons g++ pkg-config \
     xvfb \
     libx11-dev libxcomposite-dev libxdamage-dev \
-    libxfixes-dev libxrender-dev
+    libxfixes-dev libxrender-dev libxtst-dev
 ```
 
 #### Arch Linux
@@ -194,13 +203,25 @@ DISPLAY=:1 firefox &
 
 Applications will appear as textured quads in the 3D environment!
 
-### Navigation Controls
+### Controls
 
+#### Camera Movement
 - **WASD** - Move forward/left/backward/right
 - **Space** - Move up
 - **Shift** - Move down
 - **Mouse** - Look around
-- **Escape** - Toggle mouse capture
+- **Escape** - Release mouse capture
+
+#### Window Interaction
+- **Look at window** - Hover highlight appears
+- **Hold gaze for 0.5s** - Window becomes selectable (green highlight)
+- **Left click** - Select window (receives all input)
+- **Escape** - Deselect window (restore camera controls)
+- **Look away** - Auto-deselect selected window
+
+#### Application Launcher
+- **I key** - Toggle inventory menu (when no window selected)
+- **Click app** - Launch into Xvfb display
 
 ## Project Structure
 
