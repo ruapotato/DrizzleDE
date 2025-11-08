@@ -3,21 +3,13 @@
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
 
-#define WLR_USE_UNSTABLE
 extern "C" {
-#include <wlr/backend/headless.h>
-#include <wlr/render/allocator.h>
-#include <wlr/types/wlr_compositor.h>
-#include <wlr/types/wlr_xdg_shell.h>
-#include <wlr/types/wlr_subcompositor.h>
-#include <wlr/types/wlr_data_device.h>
-#include <wlr/types/wlr_buffer.h>
-#include <wlr/types/wlr_shm.h>
-#include <wlr/util/log.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 }
 
+// Only include our C wrapper - NO wlroots headers in C++
 #include "wlr_compat.h"
 
 
