@@ -70,8 +70,13 @@ func _process(delta):
             quad = create_window_quad_spatial(window_id)
             window_quads[window_id] = quad
 
-        # Update the texture
-        update_window_texture(quad, window_id)
+        # Hide unmapped windows (they exist but are closed)
+        var is_mapped = compositor.is_window_mapped(window_id)
+        quad.visible = is_mapped
+
+        # Only update texture for mapped windows
+        if is_mapped:
+            update_window_texture(quad, window_id)
 
 func create_window_quad(window_id: int, index: int) -> MeshInstance3D:
     var quad = MeshInstance3D.new()
