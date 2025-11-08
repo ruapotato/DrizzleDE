@@ -91,6 +91,7 @@ Built on proven technologies:
 
 - **XTest Integration**: Realistic input events that bypass synthetic event detection (fixes Firefox popup menus!)
 - **Popup Window Support**: Transient windows (menus, dialogs) positioned correctly relative to parent windows
+- **Auto-Close Detection**: Popup menus automatically detected when closed, selection properly cleared
 - **Spatial Organization**: Windows grouped by application class with intelligent placement
 - **Full Keyboard Support**: All special keys, modifiers, and text input working correctly
 
