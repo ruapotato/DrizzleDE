@@ -139,11 +139,11 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 	var window_size = compositor.get_window_size(window_id)
 
 	if window_size.x > 0 and window_size.y > 0:
-		# The quad is scaled by aspect ratio, so we need to account for that
-		# local_pos is in quad space where the quad is 1x1 but SCALED
-		# So local_pos.x ranges from -scale.x/2 to +scale.x/2
-		var tex_x = (local_pos.x / quad.scale.x + 0.5) * window_size.x
-		var tex_y = (-local_pos.y / quad.scale.y + 0.5) * window_size.y
+		# local_pos is in quad's local space where quad mesh is 1x1 (before scaling)
+		# So local_pos.x and local_pos.y range from -0.5 to +0.5
+		# Convert directly to texture coordinates
+		var tex_x = (local_pos.x + 0.5) * window_size.x
+		var tex_y = (-local_pos.y + 0.5) * window_size.y
 		window_mouse_pos = Vector2(
 			clamp(tex_x, 0, window_size.x - 1),
 			clamp(tex_y, 0, window_size.y - 1)
@@ -323,11 +323,8 @@ func _input(event):
 
 		# Forward all keyboard input to selected window
 		if current_state == WindowState.SELECTED:
-			# Don't forward camera controls
-			if event.is_action("move_forward") or event.is_action("move_backward") or \
-			   event.is_action("move_left") or event.is_action("move_right") or \
-			   event.is_action("jump") or event.is_action("crouch"):
-				return
+			# ALWAYS consume the event first to prevent Godot from processing it
+			get_viewport().set_input_as_handled()
 
 			print("Forwarding key ", event.keycode, " (", event.as_text(), ") to window ", selected_window_id)
 			compositor.send_key_event(
@@ -335,7 +332,6 @@ func _input(event):
 				event.keycode,
 				event.pressed
 			)
-			get_viewport().set_input_as_handled()
 
 func pulse_click():
 	# Animate sphere pulse when clicking
