@@ -7,6 +7,7 @@ extends Node3D
 @export var window_spacing := 1.5
 @export var update_rate := 60.0  # Updates per second
 @export var spawn_distance := 3.0  # Distance from player to spawn new windows
+@export var pixels_per_world_unit := 400.0  # Conversion factor: 400 pixels = 1 world unit
 
 var compositor: Node
 var camera: Camera3D
@@ -121,9 +122,21 @@ func update_window_texture(quad: MeshInstance3D, window_id: int):
     if size.x <= 0 or size.y <= 0:
         return
 
-    # Update quad scale to match window aspect ratio
-    var aspect = float(size.x) / float(size.y)
-    quad.scale = Vector3(aspect, 1, 1)
+    # Update quad scale based on actual pixel size
+    # Convert pixels to world units using our conversion factor
+    var width_world = float(size.x) / pixels_per_world_unit
+    var height_world = float(size.y) / pixels_per_world_unit
+    quad.scale = Vector3(width_world, height_world, 1)
+
+    # Update collision shape to match new size
+    var static_body = quad.get_node_or_null("StaticBody3D")
+    if static_body:
+        var collision_shape = static_body.get_node_or_null("CollisionShape3D")
+        if collision_shape and collision_shape.shape is BoxShape3D:
+            var box_shape = collision_shape.shape as BoxShape3D
+            # BoxShape3D size is the full size, and the quad is 1x1 before scaling
+            # So the collision box should match the quad size (which is now scaled)
+            box_shape.size = Vector3(1, 1, 0.01)
 
     # Create texture from image
     var texture = ImageTexture.create_from_image(image)
@@ -175,8 +188,17 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
 
     # Position the quad with Z offset to prevent Z-fighting
     quad.position = spawn_pos
-    quad.position.z += next_z_offset
-    next_z_offset += 0.01  # Small offset for each window to prevent flickering
+
+    # Check if this is a popup window - if so, position in front of parent
+    var parent_id = compositor.get_parent_window_id(window_id)
+    if parent_id != -1 and parent_id in window_quads:
+        # Popup window - position in front of parent (closer to camera = higher Z)
+        var parent_quad = window_quads[parent_id]
+        quad.position.z = parent_quad.position.z + 0.05  # Clearly in front of parent
+    else:
+        # Normal window - use incremental offset
+        quad.position.z += next_z_offset
+        next_z_offset += 0.01  # Small offset for each window to prevent flickering
 
     # Update app zone tracking
     add_window_to_zone(window_id, app_class, spawn_pos)
