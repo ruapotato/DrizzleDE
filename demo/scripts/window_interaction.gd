@@ -206,13 +206,25 @@ func clear_hover():
 	can_select = false
 
 func select_window(window_id: int, quad: MeshInstance3D):
-	# Clear hover state
+	# Clear hover state completely
 	if hovered_window_quad:
 		remove_hover_highlight(hovered_window_quad)
+
+	# Make sure to restore original color on the quad being selected
+	if quad.material_override and quad.material_override is StandardMaterial3D:
+		var mat = quad.material_override as StandardMaterial3D
+		if quad.has_meta("original_albedo"):
+			mat.albedo_color = quad.get_meta("original_albedo")
 
 	current_state = WindowState.SELECTED
 	selected_window_id = window_id
 	selected_window_quad = quad
+
+	# Clear hover tracking
+	hovered_window_id = -1
+	hovered_window_quad = null
+	hover_timer = 0.0
+	can_select = false
 
 	# Set X11 focus
 	compositor.set_window_focus(window_id)
@@ -354,24 +366,25 @@ func add_selection_glow(quad: MeshInstance3D):
 	quad.add_child(outline)
 	outline.name = "SelectionGlow"
 
-	# Create a slightly larger quad for the border
+	# Create a much larger quad for a very visible border
 	var outline_mesh = QuadMesh.new()
-	outline_mesh.size = Vector2(1.1, 1.1)  # 10% larger for visible border
+	outline_mesh.size = Vector2(1.15, 1.15)  # 15% larger for very visible border
 	outline.mesh = outline_mesh
 
-	# Glowing material
+	# Bright glowing material - VERY visible cyan
 	var glow_mat = StandardMaterial3D.new()
 	glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow_mat.albedo_color = Color(0.3, 0.8, 1.0, 1.0)  # Cyan glow
+	glow_mat.albedo_color = Color(0.0, 1.0, 1.0, 1.0)  # Pure cyan
 	glow_mat.emission_enabled = true
-	glow_mat.emission = Color(0.3, 0.8, 1.0)
-	glow_mat.emission_energy_multiplier = 3.0
+	glow_mat.emission = Color(0.0, 1.0, 1.0)  # Pure cyan emission
+	glow_mat.emission_energy_multiplier = 5.0  # Very bright
+	glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	outline.material_override = glow_mat
 
 	# Position slightly behind the window
-	outline.position.z = 0.005
+	outline.position.z = 0.01
 
-	print("  Added cyan selection glow border")
+	print("  Added BRIGHT CYAN selection glow border")
 
 func remove_selection_glow(quad: MeshInstance3D):
 	var glow = quad.get_node_or_null("SelectionGlow")

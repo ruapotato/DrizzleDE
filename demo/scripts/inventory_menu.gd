@@ -55,9 +55,17 @@ func create_menu_ui():
 	# Add some style
 	var style = StyleBoxFlat.new()
 	style.bg_color = Color(0.1, 0.1, 0.15, 0.95)
-	style.border_width_all = 2
+	# Set border widths individually (Godot 4 doesn't have border_width_all)
+	style.border_width_left = 2
+	style.border_width_right = 2
+	style.border_width_top = 2
+	style.border_width_bottom = 2
 	style.border_color = Color(0.3, 0.5, 0.8, 1.0)
-	style.corner_radius_all = 8
+	# Set corner radii individually (Godot 4 doesn't have corner_radius_all)
+	style.corner_radius_top_left = 8
+	style.corner_radius_top_right = 8
+	style.corner_radius_bottom_left = 8
+	style.corner_radius_bottom_right = 8
 	panel.add_theme_stylebox_override("panel", style)
 
 	# Title
