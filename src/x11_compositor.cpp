@@ -750,48 +750,49 @@ void X11Compositor::send_key_event(int window_id, int godot_keycode, bool presse
     // Godot KEY_* constants don't always match X11 keysyms
     KeySym keysym;
 
-    // Special key mappings (Godot KEY_* to X11 XK_*)
+    // Special key mappings (Godot 4 KEY_* to X11 XK_*)
+    // Godot 4 uses 0x400000 range for special keys
     switch (godot_keycode) {
-        // Common special keys
-        case 0x0000000D: keysym = XK_Return; break;      // KEY_ENTER / KEY_KP_ENTER
-        case 0x01000003: keysym = XK_BackSpace; break;   // KEY_BACKSPACE
-        case 0x01000000: keysym = XK_Escape; break;      // KEY_ESCAPE
-        case 0x01000001: keysym = XK_Tab; break;         // KEY_TAB
-        case 0x00000020: keysym = XK_space; break;       // KEY_SPACE
+        // Common special keys (Godot 4)
+        case 4194309: keysym = XK_Return; break;         // KEY_ENTER (0x400005)
+        case 4194308: keysym = XK_BackSpace; break;      // KEY_BACKSPACE (0x400004)
+        case 4194305: keysym = XK_Escape; break;         // KEY_ESCAPE (0x400001)
+        case 4194306: keysym = XK_Tab; break;            // KEY_TAB (0x400002)
+        case 32: keysym = XK_space; break;               // KEY_SPACE (ASCII)
 
-        // Arrow keys
-        case 0x01000012: keysym = XK_Left; break;        // KEY_LEFT
-        case 0x01000013: keysym = XK_Up; break;          // KEY_UP
-        case 0x01000014: keysym = XK_Right; break;       // KEY_RIGHT
-        case 0x01000015: keysym = XK_Down; break;        // KEY_DOWN
+        // Arrow keys (Godot 4)
+        case 4194319: keysym = XK_Left; break;           // KEY_LEFT (0x40000F)
+        case 4194320: keysym = XK_Up; break;             // KEY_UP (0x400010)
+        case 4194321: keysym = XK_Right; break;          // KEY_RIGHT (0x400011)
+        case 4194322: keysym = XK_Down; break;           // KEY_DOWN (0x400012)
 
-        // Modifiers - track but don't send as regular keys
-        case 0x01000020: keysym = XK_Shift_L; break;     // KEY_SHIFT
-        case 0x01000021: keysym = XK_Control_L; break;   // KEY_CTRL
-        case 0x01000023: keysym = XK_Alt_L; break;       // KEY_ALT
-        case 0x01000022: keysym = XK_Meta_L; break;      // KEY_META
+        // Modifiers (Godot 4)
+        case 4194325: keysym = XK_Shift_L; break;        // KEY_SHIFT (0x400015)
+        case 4194326: keysym = XK_Control_L; break;      // KEY_CTRL (0x400016)
+        case 4194328: keysym = XK_Alt_L; break;          // KEY_ALT (0x400018)
+        case 4194327: keysym = XK_Meta_L; break;         // KEY_META (0x400017)
 
-        // Function keys
-        case 0x01000030: keysym = XK_F1; break;
-        case 0x01000031: keysym = XK_F2; break;
-        case 0x01000032: keysym = XK_F3; break;
-        case 0x01000033: keysym = XK_F4; break;
-        case 0x01000034: keysym = XK_F5; break;
-        case 0x01000035: keysym = XK_F6; break;
-        case 0x01000036: keysym = XK_F7; break;
-        case 0x01000037: keysym = XK_F8; break;
-        case 0x01000038: keysym = XK_F9; break;
-        case 0x01000039: keysym = XK_F10; break;
-        case 0x0100003A: keysym = XK_F11; break;
-        case 0x0100003B: keysym = XK_F12; break;
+        // Function keys (Godot 4)
+        case 4194332: keysym = XK_F1; break;             // KEY_F1 (0x40001C)
+        case 4194333: keysym = XK_F2; break;
+        case 4194334: keysym = XK_F3; break;
+        case 4194335: keysym = XK_F4; break;
+        case 4194336: keysym = XK_F5; break;
+        case 4194337: keysym = XK_F6; break;
+        case 4194338: keysym = XK_F7; break;
+        case 4194339: keysym = XK_F8; break;
+        case 4194340: keysym = XK_F9; break;
+        case 4194341: keysym = XK_F10; break;
+        case 4194342: keysym = XK_F11; break;
+        case 4194343: keysym = XK_F12; break;
 
-        // Delete/Insert/Home/End/PageUp/PageDown
-        case 0x01000007: keysym = XK_Delete; break;      // KEY_DELETE
-        case 0x01000006: keysym = XK_Insert; break;      // KEY_INSERT
-        case 0x01000010: keysym = XK_Home; break;        // KEY_HOME
-        case 0x01000011: keysym = XK_End; break;         // KEY_END
-        case 0x01000016: keysym = XK_Page_Up; break;     // KEY_PAGEUP
-        case 0x01000017: keysym = XK_Page_Down; break;   // KEY_PAGEDOWN
+        // Delete/Insert/Home/End/PageUp/PageDown (Godot 4)
+        case 4194312: keysym = XK_Delete; break;         // KEY_DELETE (0x400008)
+        case 4194311: keysym = XK_Insert; break;         // KEY_INSERT (0x400007)
+        case 4194313: keysym = XK_Home; break;           // KEY_HOME (0x400009)
+        case 4194314: keysym = XK_End; break;            // KEY_END (0x40000A)
+        case 4194315: keysym = XK_Page_Up; break;        // KEY_PAGEUP (0x40000B)
+        case 4194316: keysym = XK_Page_Down; break;      // KEY_PAGEDOWN (0x40000C)
 
         default:
             // For printable characters, Godot uses Unicode values which match ASCII for basic chars
@@ -812,16 +813,16 @@ void X11Compositor::send_key_event(int window_id, int godot_keycode, bool presse
     // Track modifier state (static since we need to maintain state across calls)
     static unsigned int modifier_state = 0;
 
-    // Update modifier state based on pressed/released modifiers
-    if (godot_keycode == 0x01000020) {  // KEY_SHIFT
+    // Update modifier state based on pressed/released modifiers (Godot 4)
+    if (godot_keycode == 4194325) {  // KEY_SHIFT
         if (pressed) modifier_state |= ShiftMask;
         else modifier_state &= ~ShiftMask;
     }
-    else if (godot_keycode == 0x01000021) {  // KEY_CTRL
+    else if (godot_keycode == 4194326) {  // KEY_CTRL
         if (pressed) modifier_state |= ControlMask;
         else modifier_state &= ~ControlMask;
     }
-    else if (godot_keycode == 0x01000023 || godot_keycode == 0x01000022) {  // KEY_ALT or KEY_META
+    else if (godot_keycode == 4194328 || godot_keycode == 4194327) {  // KEY_ALT or KEY_META
         if (pressed) modifier_state |= Mod1Mask;
         else modifier_state &= ~Mod1Mask;
     }
