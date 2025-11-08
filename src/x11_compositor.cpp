@@ -502,23 +502,43 @@ void X11Compositor::capture_window_contents(X11Window *window) {
     // Convert based on image format
     // Most X11 servers use 32-bit BGRA or BGRX format
     if (image->bits_per_pixel == 32) {
+        // Access the raw pixel data directly
+        // For 32bpp with depth 24, format is typically BGRX (LSB first) or XBGR (MSB first)
+        uint8_t *src = (uint8_t*)image->data;
+        int bytes_per_pixel = image->bits_per_pixel / 8;
+
+        // Debug: Sample a few pixels to see what we're getting
+        static bool printed_samples = false;
+        if (!printed_samples && window->width > 10 && window->height > 10) {
+            // Sample pixel at (10, 10)
+            int sample_idx = (10 * image->bytes_per_line) + (10 * bytes_per_pixel);
+            UtilityFunctions::print("Sample pixel at (10,10): [0]=", (int)src[sample_idx+0],
+                                   " [1]=", (int)src[sample_idx+1],
+                                   " [2]=", (int)src[sample_idx+2],
+                                   " [3]=", (int)src[sample_idx+3]);
+            printed_samples = true;
+        }
+
         for (int y = 0; y < window->height; y++) {
             for (int x = 0; x < window->width; x++) {
-                unsigned long pixel = XGetPixel(image, x, y);
+                // Calculate source offset in the XImage data
+                int src_idx = (y * image->bytes_per_line) + (x * bytes_per_pixel);
 
-                size_t idx = (y * window->width + x) * 4;
+                // Calculate destination offset in our RGBA buffer
+                size_t dst_idx = (y * window->width + x) * 4;
 
-                // Extract RGB components from X11 pixel format (typically BGRA: 0xAARRGGBB)
-                uint8_t b = (pixel >> 0) & 0xFF;
-                uint8_t g = (pixel >> 8) & 0xFF;
-                uint8_t r = (pixel >> 16) & 0xFF;
-                uint8_t a = (pixel >> 24) & 0xFF;
+                // Read pixel data - try different byte orders
+                uint8_t byte0 = src[src_idx + 0];
+                uint8_t byte1 = src[src_idx + 1];
+                uint8_t byte2 = src[src_idx + 2];
+                uint8_t byte3 = src[src_idx + 3];
 
-                // Convert to RGBA for Godot
-                window->image_data[idx + 0] = r;
-                window->image_data[idx + 1] = g;
-                window->image_data[idx + 2] = b;
-                window->image_data[idx + 3] = (a == 0) ? 255 : a;  // Default to opaque if no alpha
+                // Write to RGBA format for Godot
+                // Let's try: byte0=B, byte1=G, byte2=R (standard BGRA)
+                window->image_data[dst_idx + 0] = byte2;  // R
+                window->image_data[dst_idx + 1] = byte1;  // G
+                window->image_data[dst_idx + 2] = byte0;  // B
+                window->image_data[dst_idx + 3] = 255;     // A
             }
         }
         window->has_image = true;

@@ -74,7 +74,7 @@ func create_window_quad(window_id: int, index: int) -> MeshInstance3D:
     var material = StandardMaterial3D.new()
     material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    material.albedo_color = Color(1, 0, 1, 1)  # Magenta placeholder - easy to spot
+    material.albedo_color = Color(1, 1, 1, 1)  # White (will be modulated by texture)
     quad.material_override = material
 
     # Position the quad - in front of the reference plane
