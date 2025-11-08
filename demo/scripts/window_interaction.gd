@@ -13,6 +13,7 @@ enum WindowState { NONE, HOVERED, SELECTED }
 @export var compositor_path: NodePath
 @export var raycast_distance := 100.0
 @export var hover_delay := 0.5  # Seconds to hover before can select
+@export var hover_switch_delay := 0.1  # Minimum time before switching hover to different window
 @export var escape_key := KEY_ESCAPE
 
 var camera: Camera3D
@@ -27,6 +28,7 @@ var selected_window_quad: MeshInstance3D = null
 
 # Timing
 var hover_timer := 0.0
+var hover_switch_timer := 0.0  # Prevents rapid switching between overlapping windows
 var can_select := false
 
 # Mouse tracking
@@ -202,12 +204,17 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 
 		WindowState.HOVERED:
 			if window_id != hovered_window_id:
-				# Switched to different window
-				print("Switched hover from window ", hovered_window_id, " to ", window_id)
-				clear_hover()
-				start_hover(window_id, quad)
+				# Different window detected - only switch if we've been stable for a bit
+				hover_switch_timer += delta
+				if hover_switch_timer >= hover_switch_delay:
+					# Switched to different window
+					print("Switched hover from window ", hovered_window_id, " to ", window_id)
+					clear_hover()
+					start_hover(window_id, quad)
+					hover_switch_timer = 0.0
 			else:
-				# Continue hovering - increment timer
+				# Same window - reset switch timer and continue hovering
+				hover_switch_timer = 0.0
 				hover_timer += delta
 				if hover_timer >= hover_delay and not can_select:
 					can_select = true
@@ -227,6 +234,7 @@ func start_hover(window_id: int, quad: MeshInstance3D):
 	hovered_window_id = window_id
 	hovered_window_quad = quad
 	hover_timer = 0.0
+	hover_switch_timer = 0.0
 	can_select = false
 
 	add_hover_highlight(quad)
@@ -246,6 +254,7 @@ func clear_hover():
 	hovered_window_id = -1
 	hovered_window_quad = null
 	hover_timer = 0.0
+	hover_switch_timer = 0.0
 	can_select = false
 
 func select_window(window_id: int, quad: MeshInstance3D):
@@ -295,8 +304,15 @@ func deselect_window():
 
 	print(">>> Window ", selected_window_id, " DESELECTED")
 
-	# If this window has a parent (e.g., popup menu), try to switch to the parent
+	# If this window has a parent (e.g., popup menu/dialog), move pointer to parent to close popup
 	if parent_id != -1:
+		print("    Deselecting popup window - moving pointer to parent to trigger close")
+		# Move pointer to center of parent window to trigger popup close
+		var parent_size = compositor.get_window_size(parent_id)
+		if parent_size.x > 0 and parent_size.y > 0:
+			# Send motion to center of parent window
+			compositor.send_mouse_motion(parent_id, parent_size.x / 2, parent_size.y / 2)
+
 		print("    Switching selection to parent window ", parent_id)
 		# Find the parent window quad
 		var window_ids = compositor.get_window_ids()
