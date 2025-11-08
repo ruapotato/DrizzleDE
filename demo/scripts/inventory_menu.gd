@@ -3,8 +3,10 @@ extends CanvasLayer
 ## In-game inventory menu for launching X11 applications
 
 @export var compositor_path: NodePath
+@export var window_interaction_path: NodePath
 
 var compositor: Node
+var window_interaction: Node
 var menu_visible := false
 
 # Application catalog - add your favorite apps here
@@ -30,6 +32,11 @@ func _ready():
 	else:
 		compositor = get_node_or_null("/root/Main/X11Compositor")
 
+	if window_interaction_path:
+		window_interaction = get_node(window_interaction_path)
+	else:
+		window_interaction = get_node_or_null("/root/Main/WindowInteraction")
+
 	if not compositor:
 		push_error("Compositor not found for inventory menu!")
 		return
@@ -39,6 +46,10 @@ func _ready():
 	hide_menu()
 
 func _input(event):
+	# Don't open menu if a window is selected
+	if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
+		return
+
 	if event.is_action_pressed("ui_tab") or (event is InputEventKey and event.pressed and event.keycode == KEY_I):
 		toggle_menu()
 		get_viewport().set_input_as_handled()

@@ -5,6 +5,7 @@
 
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
+#include <X11/keysymdef.h>
 #include <cstring>
 #include <cstdio>
 #include <algorithm>
@@ -745,18 +746,84 @@ void X11Compositor::send_key_event(int window_id, int godot_keycode, bool presse
 
     X11Window *window = it->second;
 
-    // Convert Godot keycode to X11 keysym
-    // Godot keycodes for printable characters match Unicode/ASCII values
-    // For special keys, Godot uses KEY_* constants that often match X11 keysyms
-    KeySym keysym = godot_keycode;
+    // Map Godot keycodes to X11 keysyms
+    // Godot KEY_* constants don't always match X11 keysyms
+    KeySym keysym;
+
+    // Special key mappings (Godot KEY_* to X11 XK_*)
+    switch (godot_keycode) {
+        // Common special keys
+        case 0x0000000D: keysym = XK_Return; break;      // KEY_ENTER / KEY_KP_ENTER
+        case 0x01000003: keysym = XK_BackSpace; break;   // KEY_BACKSPACE
+        case 0x01000000: keysym = XK_Escape; break;      // KEY_ESCAPE
+        case 0x01000001: keysym = XK_Tab; break;         // KEY_TAB
+        case 0x00000020: keysym = XK_space; break;       // KEY_SPACE
+
+        // Arrow keys
+        case 0x01000012: keysym = XK_Left; break;        // KEY_LEFT
+        case 0x01000013: keysym = XK_Up; break;          // KEY_UP
+        case 0x01000014: keysym = XK_Right; break;       // KEY_RIGHT
+        case 0x01000015: keysym = XK_Down; break;        // KEY_DOWN
+
+        // Modifiers - track but don't send as regular keys
+        case 0x01000020: keysym = XK_Shift_L; break;     // KEY_SHIFT
+        case 0x01000021: keysym = XK_Control_L; break;   // KEY_CTRL
+        case 0x01000023: keysym = XK_Alt_L; break;       // KEY_ALT
+        case 0x01000022: keysym = XK_Meta_L; break;      // KEY_META
+
+        // Function keys
+        case 0x01000030: keysym = XK_F1; break;
+        case 0x01000031: keysym = XK_F2; break;
+        case 0x01000032: keysym = XK_F3; break;
+        case 0x01000033: keysym = XK_F4; break;
+        case 0x01000034: keysym = XK_F5; break;
+        case 0x01000035: keysym = XK_F6; break;
+        case 0x01000036: keysym = XK_F7; break;
+        case 0x01000037: keysym = XK_F8; break;
+        case 0x01000038: keysym = XK_F9; break;
+        case 0x01000039: keysym = XK_F10; break;
+        case 0x0100003A: keysym = XK_F11; break;
+        case 0x0100003B: keysym = XK_F12; break;
+
+        // Delete/Insert/Home/End/PageUp/PageDown
+        case 0x01000007: keysym = XK_Delete; break;      // KEY_DELETE
+        case 0x01000006: keysym = XK_Insert; break;      // KEY_INSERT
+        case 0x01000010: keysym = XK_Home; break;        // KEY_HOME
+        case 0x01000011: keysym = XK_End; break;         // KEY_END
+        case 0x01000016: keysym = XK_Page_Up; break;     // KEY_PAGEUP
+        case 0x01000017: keysym = XK_Page_Down; break;   // KEY_PAGEDOWN
+
+        default:
+            // For printable characters, Godot uses Unicode values which match ASCII for basic chars
+            // Try using the keycode directly as a keysym
+            keysym = godot_keycode;
+            break;
+    }
 
     // Convert keysym to keycode for this display
     KeyCode x11_keycode = XKeysymToKeycode(display, keysym);
 
     if (x11_keycode == 0) {
         // Keycode not found - might be an unmapped key
-        UtilityFunctions::print("Warning: Cannot map Godot keycode ", godot_keycode, " to X11 keycode");
+        UtilityFunctions::print("Warning: Cannot map Godot keycode 0x", String::num_int64(godot_keycode, 16), " (keysym 0x", String::num_int64(keysym, 16), ") to X11 keycode");
         return;
+    }
+
+    // Track modifier state (static since we need to maintain state across calls)
+    static unsigned int modifier_state = 0;
+
+    // Update modifier state based on pressed/released modifiers
+    if (godot_keycode == 0x01000020) {  // KEY_SHIFT
+        if (pressed) modifier_state |= ShiftMask;
+        else modifier_state &= ~ShiftMask;
+    }
+    else if (godot_keycode == 0x01000021) {  // KEY_CTRL
+        if (pressed) modifier_state |= ControlMask;
+        else modifier_state &= ~ControlMask;
+    }
+    else if (godot_keycode == 0x01000023 || godot_keycode == 0x01000022) {  // KEY_ALT or KEY_META
+        if (pressed) modifier_state |= Mod1Mask;
+        else modifier_state &= ~Mod1Mask;
     }
 
     XEvent event;
@@ -771,7 +838,7 @@ void X11Compositor::send_key_event(int window_id, int godot_keycode, bool presse
     event.xkey.y = 0;
     event.xkey.x_root = 0;
     event.xkey.y_root = 0;
-    event.xkey.state = 0;
+    event.xkey.state = modifier_state;  // Include modifier state
     event.xkey.keycode = x11_keycode;
     event.xkey.same_screen = True;
 

@@ -12,6 +12,7 @@ var compositor: Node
 var camera: Camera3D
 var window_quads := {}  # Maps window_id -> MeshInstance3D
 var update_timer := 0.0
+var next_z_offset := 0.0  # Z offset for each window to prevent Z-fighting
 
 # Application grouping - tracks where each app's windows are located
 var app_zones := {}  # Maps app_class -> {center: Vector3, window_ids: Array}
@@ -172,13 +173,15 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
     quad.set_meta("app_class", app_class)
     static_body.set_meta("window_id", window_id)
 
-    # Position the quad
+    # Position the quad with Z offset to prevent Z-fighting
     quad.position = spawn_pos
+    quad.position.z += next_z_offset
+    next_z_offset += 0.01  # Small offset for each window to prevent flickering
 
     # Update app zone tracking
     add_window_to_zone(window_id, app_class, spawn_pos)
 
-    print("Created window quad ", window_id, ": ", window_title, " [", app_class, "] at ", spawn_pos)
+    print("Created window quad ", window_id, ": ", window_title, " [", app_class, "] at ", quad.position)
 
     return quad
 

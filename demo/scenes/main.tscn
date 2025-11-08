@@ -49,6 +49,7 @@ compositor_path = NodePath("../X11Compositor")
 [node name="InventoryMenu" type="CanvasLayer" parent="."]
 script = ExtResource("4_inventory_menu")
 compositor_path = NodePath("../X11Compositor")
+window_interaction_path = NodePath("../WindowInteraction")
 
 [node name="Floor" type="MeshInstance3D" parent="."]
 transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
