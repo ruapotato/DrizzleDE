@@ -749,6 +749,12 @@ void X11Compositor::send_mouse_button(int window_id, int button, bool pressed, i
     XTranslateCoordinates(display, window->xwindow, root_window,
                          0, 0, &win_x_root, &win_y_root, &child_return);
 
+    UtilityFunctions::print("[X11] Mouse button ", pressed ? "PRESS" : "RELEASE", " to window ", window_id,
+                           " (parent:", window->parent_window_id, ")",
+                           " - window_pos=(", x, ",", y, ")",
+                           " win_absolute=(", win_x_root, ",", win_y_root, ")",
+                           " root_coords=(", win_x_root + x, ",", win_y_root + y, ")");
+
     XEvent event;
     memset(&event, 0, sizeof(event));
 
