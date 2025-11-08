@@ -1,6 +1,6 @@
 # DrizzleDE - 3D Spatial Desktop Compositor
 
-A 3D desktop compositor that renders X11 applications as textured quads in fully navigable 3D space using Xephyr nested X server.
+A 3D desktop compositor that renders X11 applications as textured quads in fully navigable 3D space using Xvfb (headless X virtual framebuffer).
 
 ## Vision
 
@@ -28,7 +28,7 @@ With 3D spatial computing, you get:
 
 Built on proven technologies:
 
-- **X11 + Xephyr** - Nested X server providing safe, isolated compositor environment
+- **X11 + Xvfb** - Headless X virtual framebuffer providing safe, isolated compositor environment
 - **Godot 4** - Mature 3D engine with excellent performance and editor workflow
 - **GDExtension** - Native C++ integration for compositor logic
 - **X11 Composite Extension** - Window content capture without client cooperation
@@ -47,11 +47,11 @@ Built on proven technologies:
 │  │                                    │ │
 │  │  ┌──────────────────────────────┐  │ │
 │  │  │  X11Compositor (GDExtension) │  │ │
-│  │  │  - Xephyr management         │  │ │
+│  │  │  - Xvfb management           │  │ │
 │  │  │  - Window tracking           │  │ │
 │  │  │  - Composite/Damage          │  │ │
 │  │  │  ┌────────────────────────┐  │  │ │
-│  │  │  │ Xephyr :1/:2 (nested)  │  │  │ │
+│  │  │  │ Xvfb :1/:2 (headless)  │  │  │ │
 │  │  │  │ ┌────────┐ ┌────────┐  │  │  │ │
 │  │  │  │ │ xterm  │ │firefox │  │  │  │ │
 │  │  │  │ └────────┘ └────────┘  │  │  │ │
@@ -62,11 +62,12 @@ Built on proven technologies:
 └─────────────────────────────────────────┘
 ```
 
-### Benefits of Xephyr Approach
+### Benefits of Xvfb Approach
 
+- **Headless**: No visible X server window cluttering your desktop
 - **Safe**: Won't interfere with your existing X11/Wayland session
 - **Portable**: Works in both X11 and Wayland host environments
-- **Isolated**: Runs in its own sandboxed nested X server
+- **Isolated**: Runs in its own sandboxed virtual X server
 - **Compatible**: Works with all X11 applications
 
 ## Current Status
@@ -74,8 +75,8 @@ Built on proven technologies:
 🚧 **Early Development** - Building core compositor functionality
 
 - ✅ Project architecture defined
-- ✅ GDExtension with X11/Xephyr integration
-- ✅ Automatic Xephyr launching and management
+- ✅ GDExtension with X11/Xvfb integration
+- ✅ Automatic Xvfb launching and management (headless operation)
 - ✅ Window tracking and capture via Composite extension
 - ✅ Multiple window rendering to 3D textures
 - ⬜ Input handling (mouse/keyboard forwarding to windows)
@@ -89,7 +90,7 @@ Built on proven technologies:
 ### System Requirements
 
 - Linux system with X11 support
-- Xephyr (nested X server)
+- Xvfb (X virtual framebuffer)
 - OpenGL 3.3+ compatible GPU
 - 4GB+ RAM recommended
 
@@ -99,7 +100,7 @@ Built on proven technologies:
 
 ```bash
 sudo dnf install scons gcc-c++ pkgconfig \
-    xorg-x11-server-Xephyr \
+    xorg-x11-server-Xvfb \
     libX11-devel libXcomposite-devel libXdamage-devel \
     libXfixes-devel libXrender-devel
 ```
@@ -108,7 +109,7 @@ sudo dnf install scons gcc-c++ pkgconfig \
 
 ```bash
 sudo apt install scons g++ pkg-config \
-    xserver-xephyr \
+    xvfb \
     libx11-dev libxcomposite-dev libxdamage-dev \
     libxfixes-dev libxrender-dev
 ```
@@ -117,7 +118,7 @@ sudo apt install scons g++ pkg-config \
 
 ```bash
 sudo pacman -S scons gcc pkgconf \
-    xorg-server-xephyr \
+    xorg-server-xvfb \
     libx11 libxcomposite libxdamage libxfixes libxrender
 ```
 
@@ -174,28 +175,20 @@ godot4
 Watch the console output for the display number:
 ```
 Using display number: 1
-Xephyr started successfully
-Connected to Xephyr display: :1
+Xvfb started successfully
+Connected to Xvfb display: :1
 ```
 
-A 1280x720 Xephyr window will appear showing the nested X server.
+Xvfb runs invisibly in the background (no visible window).
 
 ### Launch Applications
 
-Use the helper script to launch applications in the nested X server:
+Launch applications directly into the Xvfb display:
 
 ```bash
-# Basic usage
-./launch_app.sh :1 xterm
-
-# Launch more apps
-./launch_app.sh :1 xclock
-./launch_app.sh :1 firefox
-```
-
-Or manually:
-```bash
+# Check console output for the display number (e.g., :1, :2)
 DISPLAY=:1 xterm &
+DISPLAY=:1 xclock &
 DISPLAY=:1 firefox &
 ```
 
@@ -230,7 +223,6 @@ DrizzleDE/
 │   └── register_types.cpp
 ├── godot-cpp/                       # Godot C++ bindings (submodule)
 ├── build.sh                         # Build script
-├── launch_app.sh                    # Helper to launch X11 apps in Xephyr
 ├── SConstruct                       # SCons build configuration
 └── project.godot                    # Godot project file
 ```
@@ -304,10 +296,10 @@ git submodule update --init --recursive
 
 ### Runtime Issues
 
-**Xephyr not found**
+**Xvfb not found**
 ```bash
-# Check if Xephyr is installed
-which Xephyr
+# Check if Xvfb is installed
+which Xvfb
 
 # Install if missing (see Dependencies above)
 ```
@@ -330,7 +322,7 @@ sudo rm /tmp/.X11-unix/X1  # Only if you're sure it's stale
 **Window textures are black**
 - Wait a moment for windows to be captured
 - Check Godot console for capture errors
-- Ensure Composite extension is available in Xephyr
+- Ensure Composite extension is available in Xvfb (enabled by default)
 
 ## Philosophy
 
@@ -381,7 +373,7 @@ See [LICENSE](LICENSE) for details.
 - **X.Org** - The foundation of Linux desktop graphics
 - **Godot** - Powerful and accessible 3D engine
 - **X11 Composite Extension** - Enabling window content capture
-- **Xephyr** - Safe nested X server implementation
+- **Xvfb** - Headless X virtual framebuffer for isolated operation
 - The Compiz and other X11 compositor communities
 
 ---
