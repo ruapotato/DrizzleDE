@@ -48,6 +48,7 @@ void X11Compositor::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_window_pid", "window_id"), &X11Compositor::get_window_pid);
     ClassDB::bind_method(D_METHOD("get_parent_window_id", "window_id"), &X11Compositor::get_parent_window_id);
     ClassDB::bind_method(D_METHOD("get_window_position", "window_id"), &X11Compositor::get_window_position);
+    ClassDB::bind_method(D_METHOD("is_window_mapped", "window_id"), &X11Compositor::is_window_mapped);
 
     // Input handling
     ClassDB::bind_method(D_METHOD("send_mouse_button", "window_id", "button", "pressed", "x", "y"), &X11Compositor::send_mouse_button);
@@ -745,6 +746,14 @@ Vector2i X11Compositor::get_window_position(int window_id) {
                            ") absolute=(", x_return, ",", y_return, ")");
 
     return Vector2i(x_return, y_return);
+}
+
+bool X11Compositor::is_window_mapped(int window_id) {
+    auto it = windows.find(window_id);
+    if (it == windows.end()) {
+        return false;  // Window doesn't exist
+    }
+    return it->second->mapped;
 }
 
 // Input handling methods

@@ -30,6 +30,7 @@ var selected_window_quad: MeshInstance3D = null
 var hover_timer := 0.0
 var hover_switch_timer := 0.0  # Prevents rapid switching between overlapping windows
 var can_select := false
+var just_switched_to_parent := false  # Prevents immediate deselection after parent switch
 
 # Mouse tracking
 var window_mouse_pos := Vector2.ZERO
@@ -90,6 +91,13 @@ func _process(delta):
 	if not camera or not compositor or not compositor.is_initialized():
 		return
 
+	# Check if selected window is still mapped (not closed)
+	if current_state == WindowState.SELECTED and selected_window_id != -1:
+		if not compositor.is_window_mapped(selected_window_id):
+			print(">>> Selected window ", selected_window_id, " was unmapped (closed) - auto-deselecting")
+			deselect_window()
+			# Don't return here - continue with raycast to potentially select parent/new window
+
 	# Raycast from camera center
 	var from = camera.global_position
 	var to = from - camera.global_transform.basis.z * raycast_distance
@@ -132,6 +140,11 @@ func _process(delta):
 		mouse_sphere.visible = true
 
 	# No window hit - clear hover AND selection (auto-deselect when looking away)
+	# But DON'T deselect if we just switched to parent window (give it one frame)
+	if just_switched_to_parent:
+		just_switched_to_parent = false
+		return
+
 	if current_state == WindowState.HOVERED:
 		clear_hover()
 	elif current_state == WindowState.SELECTED:
@@ -299,29 +312,43 @@ func deselect_window():
 
 	# Check if the selected window has a parent - if so, try to switch to parent instead
 	var parent_id = -1
+	var window_still_mapped = false
 	if selected_window_id != -1:
 		parent_id = compositor.get_parent_window_id(selected_window_id)
+		window_still_mapped = compositor.is_window_mapped(selected_window_id)
 
-	print(">>> Window ", selected_window_id, " DESELECTED")
+	print(">>> Window ", selected_window_id, " DESELECTED (mapped: ", window_still_mapped, ")")
 
-	# If this window has a parent (e.g., popup menu/dialog), move pointer to parent to close popup
-	if parent_id != -1:
-		print("    Deselecting popup window - moving pointer to parent to trigger close")
-		# Move pointer to center of parent window to trigger popup close
-		var parent_size = compositor.get_window_size(parent_id)
-		if parent_size.x > 0 and parent_size.y > 0:
-			# Send motion to center of parent window
-			compositor.send_mouse_motion(parent_id, parent_size.x / 2, parent_size.y / 2)
+	# If this window has a parent (e.g., popup menu/dialog) AND is still mapped,
+	# switch to parent and send click to close popup
+	# If window is already unmapped (closed), just clear selection - no need to click parent
+	if parent_id != -1 and window_still_mapped:
+		print("    Popup window still open - switching to parent and closing popup")
 
-		print("    Switching selection to parent window ", parent_id)
-		# Find the parent window quad
+		# Find the parent window quad first
 		var window_ids = compositor.get_window_ids()
 		if parent_id in window_ids:
-			# Find the quad for the parent window
 			var parent_quad = find_window_quad(parent_id)
 			if parent_quad:
+				# Move pointer to center of parent and send a click to close popup and focus parent
+				var parent_size = compositor.get_window_size(parent_id)
+				if parent_size.x > 0 and parent_size.y > 0:
+					var center_x = parent_size.x / 2
+					var center_y = parent_size.y / 2
+
+					# Move pointer to parent center
+					compositor.send_mouse_motion(parent_id, center_x, center_y)
+
+					# Send a click to parent to close popup and restore focus
+					compositor.send_mouse_button(parent_id, 1, true, center_x, center_y)  # Press
+					compositor.send_mouse_button(parent_id, 1, false, center_x, center_y)  # Release
+
+				print("    Switching selection to parent window ", parent_id)
+				just_switched_to_parent = true  # Prevent immediate deselection
 				select_window(parent_id, parent_quad)
 				return  # Don't fully deselect, we switched to parent
+	elif parent_id != -1 and not window_still_mapped:
+		print("    Popup window already closed - just clearing selection")
 
 	print("    Camera controls restored")
 
