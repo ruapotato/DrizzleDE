@@ -141,11 +141,15 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 	var window_size = compositor.get_window_size(window_id)
 
 	if window_size.x > 0 and window_size.y > 0:
-		# local_pos is in quad's local space where quad mesh is 1x1 (before scaling)
-		# So local_pos.x and local_pos.y range from -0.5 to +0.5
-		# Convert directly to texture coordinates
-		var tex_x = (local_pos.x + 0.5) * window_size.x
-		var tex_y = (-local_pos.y + 0.5) * window_size.y
+		# local_pos is in quad's local SCALED space
+		# The quad mesh is 1x1, but after scaling it's scale.x by scale.y
+		# So we need to normalize by dividing by scale to get -0.5 to +0.5 range
+		var normalized_local_x = local_pos.x / quad.scale.x
+		var normalized_local_y = local_pos.y / quad.scale.y
+
+		# Now convert normalized coordinates to texture pixel coordinates
+		var tex_x = (normalized_local_x + 0.5) * window_size.x
+		var tex_y = (-normalized_local_y + 0.5) * window_size.y
 		window_mouse_pos = Vector2(
 			clamp(tex_x, 0, window_size.x - 1),
 			clamp(tex_y, 0, window_size.y - 1)
