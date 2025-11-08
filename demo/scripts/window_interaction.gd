@@ -235,7 +235,7 @@ func select_window(window_id: int, quad: MeshInstance3D):
 	var window_title = compositor.get_window_title(window_id)
 	print("╔═══════════════════════════════════════╗")
 	print("║ WINDOW SELECTED!                      ║")
-	print("║ ", window_title, " " * max(0, 37 - window_title.length()), "║")
+	print("║ ", window_title, " " * int(max(0, 37 - window_title.length())), "║")
 	print("║                                       ║")
 	print("║ Mouse/keyboard goes to this window    ║")
 	print("║ Press ESC to release                  ║")
