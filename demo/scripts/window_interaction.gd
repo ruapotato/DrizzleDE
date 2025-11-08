@@ -141,33 +141,32 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 	var window_size = compositor.get_window_size(window_id)
 
 	if window_size.x > 0 and window_size.y > 0:
-		# local_pos is in quad's local SCALED space
-		# The quad mesh is 1x1, but after scaling it's scale.x by scale.y
-		# So we need to normalize by dividing by scale to get -0.5 to +0.5 range
-		var normalized_local_x = local_pos.x / quad.scale.x
-		var normalized_local_y = local_pos.y / quad.scale.y
-
-		# Now convert normalized coordinates to texture pixel coordinates
-		var tex_x = (normalized_local_x + 0.5) * window_size.x
-		var tex_y = (-normalized_local_y + 0.5) * window_size.y
+		# local_pos is in quad's local space where quad mesh is 1x1 (before scaling)
+		# affine_inverse() already accounts for scale, so local_pos ranges from -0.5 to +0.5
+		# Convert directly to texture coordinates
+		var tex_x = (local_pos.x + 0.5) * window_size.x
+		var tex_y = (-local_pos.y + 0.5) * window_size.y
 		window_mouse_pos = Vector2(
 			clamp(tex_x, 0, window_size.x - 1),
 			clamp(tex_y, 0, window_size.y - 1)
 		)
 
-		# Debug popup window mouse coordinates with full details
-		var parent_id = compositor.get_parent_window_id(window_id)
-		if parent_id != -1:
-			print("━━━ POPUP MOUSE DEBUG ━━━")
-			print("  Window ID: ", window_id, " (parent: ", parent_id, ")")
-			print("  Hit pos (world): ", hit_pos)
-			print("  Quad position: ", quad.global_position)
-			print("  Quad scale: ", quad.scale)
-			print("  Local pos (mesh space): ", local_pos)
-			print("  Window size (pixels): ", window_size)
-			print("  Calculated tex coords: (", tex_x, ", ", tex_y, ")")
-			print("  Sending to X11: (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
-			print("━━━━━━━━━━━━━━━━━━━━━━")
+		# Debug ALL window mouse coordinates (throttled to avoid spam)
+		if window_id == selected_window_id:
+			var time = Time.get_ticks_msec()
+			if not has_meta("last_debug_time") or time - get_meta("last_debug_time") > 500:
+				set_meta("last_debug_time", time)
+				var parent_id = compositor.get_parent_window_id(window_id)
+				print("━━━ MOUSE DEBUG ━━━")
+				print("  Window ID: ", window_id, " (parent: ", parent_id, ")")
+				print("  Hit pos (world): ", hit_pos)
+				print("  Quad position: ", quad.global_position)
+				print("  Quad scale: ", quad.scale)
+				print("  Local pos (mesh space): ", local_pos)
+				print("  Window size (pixels): ", window_size)
+				print("  Calculated tex coords: (", tex_x, ", ", tex_y, ")")
+				print("  Sending to X11: (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
+				print("━━━━━━━━━━━━━━━━━━━━━━")
 
 	# Forward mouse motion to window
 	if window_id != -1:
