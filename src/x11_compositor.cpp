@@ -743,6 +743,12 @@ void X11Compositor::send_mouse_button(int window_id, int button, bool pressed, i
 
     X11Window *window = it->second;
 
+    // Get window's absolute position on the X11 screen
+    ::Window child_return;
+    int win_x_root, win_y_root;
+    XTranslateCoordinates(display, window->xwindow, root_window,
+                         0, 0, &win_x_root, &win_y_root, &child_return);
+
     XEvent event;
     memset(&event, 0, sizeof(event));
 
@@ -753,8 +759,8 @@ void X11Compositor::send_mouse_button(int window_id, int button, bool pressed, i
     event.xbutton.time = CurrentTime;
     event.xbutton.x = x;
     event.xbutton.y = y;
-    event.xbutton.x_root = 0;
-    event.xbutton.y_root = 0;
+    event.xbutton.x_root = win_x_root + x;  // Root coordinates = window position + window-relative coords
+    event.xbutton.y_root = win_y_root + y;
     event.xbutton.state = 0;
     event.xbutton.button = button;
     event.xbutton.same_screen = True;
@@ -771,6 +777,12 @@ void X11Compositor::send_mouse_motion(int window_id, int x, int y) {
 
     X11Window *window = it->second;
 
+    // Get window's absolute position on the X11 screen
+    ::Window child_return;
+    int win_x_root, win_y_root;
+    XTranslateCoordinates(display, window->xwindow, root_window,
+                         0, 0, &win_x_root, &win_y_root, &child_return);
+
     XEvent event;
     memset(&event, 0, sizeof(event));
 
@@ -781,8 +793,8 @@ void X11Compositor::send_mouse_motion(int window_id, int x, int y) {
     event.xmotion.time = CurrentTime;
     event.xmotion.x = x;
     event.xmotion.y = y;
-    event.xmotion.x_root = 0;
-    event.xmotion.y_root = 0;
+    event.xmotion.x_root = win_x_root + x;  // Root coordinates = window position + window-relative coords
+    event.xmotion.y_root = win_y_root + y;
     event.xmotion.state = 0;
     event.xmotion.is_hint = NotifyNormal;
     event.xmotion.same_screen = True;

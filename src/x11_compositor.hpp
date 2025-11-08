@@ -1,24 +1,25 @@
 #ifndef X11_COMPOSITOR_HPP
 #define X11_COMPOSITOR_HPP
 
-// Include X11 headers FIRST to avoid name collision with godot::Window
+// Include standard library headers FIRST
+#include <map>
+#include <vector>
+
+// Include X11 headers BEFORE Godot to avoid name collision with godot::Window
 #include <X11/Xlib.h>
 #include <X11/extensions/Xcomposite.h>
 #include <X11/extensions/Xdamage.h>
 #include <X11/extensions/Xrender.h>
+
+// Typedef X11 types immediately after X11 headers, BEFORE Godot headers
+typedef ::Window X11WindowHandle;
+typedef ::Damage X11Damage;
 
 // Now include Godot headers
 #include <godot_cpp/classes/node.hpp>
 #include <godot_cpp/classes/image.hpp>
 #include <godot_cpp/variant/vector2i.hpp>
 #include <godot_cpp/variant/typed_array.hpp>
-
-#include <map>
-#include <vector>
-
-// Typedef X11 types BEFORE entering godot namespace to avoid collision
-typedef ::Window X11WindowHandle;
-typedef ::Damage X11Damage;
 
 namespace godot {
 
