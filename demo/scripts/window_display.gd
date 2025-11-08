@@ -186,6 +186,20 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
     return quad
 
 func get_spawn_position(window_id: int, app_class: String) -> Vector3:
+    # Check if this is a popup window (has a parent)
+    var parent_id = compositor.get_parent_window_id(window_id)
+    if parent_id != -1 and parent_id in window_quads:
+        # This is a popup - position it relative to the parent window
+        var parent_quad = window_quads[parent_id]
+        var parent_pos = parent_quad.global_position
+
+        # Position popup slightly to the right and down from parent
+        # This roughly matches where Firefox shows its dropdown menus
+        var popup_offset = Vector3(0.2, -0.3, 0)
+
+        print("  Positioning popup window ", window_id, " relative to parent ", parent_id)
+        return parent_pos + popup_offset
+
     # If this app already has windows, spawn near them
     if app_class != "" and app_class in app_zones:
         var zone = app_zones[app_class]

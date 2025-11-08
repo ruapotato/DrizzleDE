@@ -45,6 +45,7 @@ void X11Compositor::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_window_class", "window_id"), &X11Compositor::get_window_class);
     ClassDB::bind_method(D_METHOD("get_window_title", "window_id"), &X11Compositor::get_window_title);
     ClassDB::bind_method(D_METHOD("get_window_pid", "window_id"), &X11Compositor::get_window_pid);
+    ClassDB::bind_method(D_METHOD("get_parent_window_id", "window_id"), &X11Compositor::get_parent_window_id);
 
     // Input handling
     ClassDB::bind_method(D_METHOD("send_mouse_button", "window_id", "button", "pressed", "x", "y"), &X11Compositor::send_mouse_button);
@@ -322,9 +323,9 @@ bool X11Compositor::should_track_window(X11WindowHandle xwin) {
         return false;
     }
 
-    // Skip windows that are too small (likely popups, tooltips, etc)
-    // Minimum 150x100 to avoid tiny Firefox popup windows
-    if (attrs.width < 150 || attrs.height < 100) {
+    // Skip tiny windows (< 10x10) which are likely internal/invisible windows
+    // But DO track popup menus which can be as small as 50x20
+    if (attrs.width < 10 || attrs.height < 10) {
         return false;
     }
 
@@ -343,7 +344,7 @@ bool X11Compositor::should_track_window(X11WindowHandle xwin) {
         }
     }
 
-    // Also track mapped windows without WM_STATE
+    // Also track mapped windows without WM_STATE (including popups)
     return attrs.map_state == IsViewable;
 }
 
@@ -369,6 +370,7 @@ void X11Compositor::add_window(X11WindowHandle xwin) {
     window->mapped = (attrs.map_state == IsViewable);
     window->has_image = false;
     window->pid = -1;
+    window->parent_window_id = -1;  // Default: no parent
 
     // Get window title (WM_NAME)
     char *window_name = nullptr;
@@ -397,6 +399,27 @@ void X11Compositor::add_window(X11WindowHandle xwin) {
                           &actual_type, &actual_format, &nitems, &bytes_after, &prop) == Success) {
         if (prop && nitems > 0) {
             window->pid = *((int*)prop);
+        }
+        if (prop) XFree(prop);
+    }
+
+    // Check for parent window (WM_TRANSIENT_FOR property)
+    // This indicates this window is a popup/dialog for another window
+    Atom transient_atom = XInternAtom(display, "WM_TRANSIENT_FOR", False);
+    X11WindowHandle parent_xwin = None;
+
+    prop = nullptr;
+    if (XGetWindowProperty(display, xwin, transient_atom, 0, 1, False, XA_WINDOW,
+                          &actual_type, &actual_format, &nitems, &bytes_after, &prop) == Success) {
+        if (prop && nitems > 0) {
+            parent_xwin = *((X11WindowHandle*)prop);
+
+            // Look up our internal window ID for this parent
+            auto parent_it = xwindow_to_id.find(parent_xwin);
+            if (parent_it != xwindow_to_id.end()) {
+                window->parent_window_id = parent_it->second;
+                UtilityFunctions::print("  Window is transient for window ", window->parent_window_id);
+            }
         }
         if (prop) XFree(prop);
     }
@@ -679,6 +702,14 @@ int X11Compositor::get_window_pid(int window_id) {
         return -1;
     }
     return it->second->pid;
+}
+
+int X11Compositor::get_parent_window_id(int window_id) {
+    auto it = windows.find(window_id);
+    if (it == windows.end()) {
+        return -1;
+    }
+    return it->second->parent_window_id;
 }
 
 // Input handling methods

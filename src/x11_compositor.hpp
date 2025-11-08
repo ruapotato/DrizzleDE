@@ -36,6 +36,7 @@ struct X11Window {
     String wm_class;                 // Window class (application identifier)
     String wm_name;                  // Window title
     int pid;                         // Process ID
+    int parent_window_id;            // Parent window ID (-1 if no parent)
 };
 
 class X11Compositor : public Node {
@@ -107,6 +108,7 @@ public:
     String get_window_class(int window_id);
     String get_window_title(int window_id);
     int get_window_pid(int window_id);
+    int get_parent_window_id(int window_id);
 
     // Input handling
     void send_mouse_button(int window_id, int button, bool pressed, int x, int y);
