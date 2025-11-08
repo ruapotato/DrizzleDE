@@ -151,11 +151,19 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 			clamp(tex_y, 0, window_size.y - 1)
 		)
 
-		# Debug popup window mouse coordinates
+		# Debug popup window mouse coordinates with full details
 		var parent_id = compositor.get_parent_window_id(window_id)
 		if parent_id != -1:
-			print("POPUP MOUSE: window=", window_id, " local_pos=", local_pos,
-			      " size=", window_size, " -> pixel=(", int(window_mouse_pos.x), ",", int(window_mouse_pos.y), ")")
+			print("━━━ POPUP MOUSE DEBUG ━━━")
+			print("  Window ID: ", window_id, " (parent: ", parent_id, ")")
+			print("  Hit pos (world): ", hit_pos)
+			print("  Quad position: ", quad.global_position)
+			print("  Quad scale: ", quad.scale)
+			print("  Local pos (mesh space): ", local_pos)
+			print("  Window size (pixels): ", window_size)
+			print("  Calculated tex coords: (", tex_x, ", ", tex_y, ")")
+			print("  Sending to X11: (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
+			print("━━━━━━━━━━━━━━━━━━━━━━")
 
 	# Forward mouse motion to window
 	if window_id != -1:
