@@ -248,13 +248,15 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
         var popup_height_world = float(popup_size.y) / pixels_per_world_unit
 
         # Parent's top-left corner in world coordinates
-        var parent_topleft_world = parent_pos_center - Vector3(parent_width_world / 2, parent_height_world / 2, 0)
+        # In 3D: X increases right (so left = center - width/2)
+        #        Y increases up (so TOP = center + height/2)
+        var parent_topleft_world = parent_pos_center + Vector3(-parent_width_world / 2, parent_height_world / 2, 0)
 
         # Popup's top-left corner = parent's top-left + offset
         var popup_topleft_world = parent_topleft_world + offset_world
 
-        # Popup's center = top-left + half size
-        var popup_center_world = popup_topleft_world + Vector3(popup_width_world / 2, popup_height_world / 2, 0)
+        # Popup's center = top-left + (width/2 right, -height/2 down to center)
+        var popup_center_world = popup_topleft_world + Vector3(popup_width_world / 2, -popup_height_world / 2, 0)
 
         print("  Positioning popup window ", window_id, " relative to parent ", parent_id)
         print("    Parent pos (pixels): ", parent_pos_px, " size: ", parent_size)
