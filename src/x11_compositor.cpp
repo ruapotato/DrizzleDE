@@ -321,8 +321,9 @@ bool X11Compositor::should_track_window(X11WindowHandle xwin) {
         return false;
     }
 
-    // Skip windows that are too small (likely not real application windows)
-    if (attrs.width < 10 || attrs.height < 10) {
+    // Skip windows that are too small (likely popups, tooltips, etc)
+    // Minimum 150x100 to avoid tiny Firefox popup windows
+    if (attrs.width < 150 || attrs.height < 100) {
         return false;
     }
 
@@ -427,9 +428,13 @@ void X11Compositor::remove_window(X11WindowHandle xwin) {
 
     UtilityFunctions::print("Removing window ", window_id);
 
-    // Clean up damage tracking
+    // Clean up damage tracking - set error handler to ignore BadDamage errors
+    // (window might already be destroyed on X11 side)
     if (damage_available && window->damage) {
+        // Ignore errors when destroying damage - window might be gone
+        XSync(display, False);  // Flush pending requests first
         XDamageDestroy(display, window->damage);
+        XSync(display, False);  // Ensure the destroy completes
     }
 
     // Remove from maps
