@@ -269,15 +269,13 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
         # Popup's top-left in local space
         var popup_topleft_local = parent_topleft_local + offset_local
 
-        # Popup's center in local space
+        # Popup's center in local space (relative to parent center)
         var popup_center_local = popup_topleft_local + Vector3(popup_width_world / 2, -popup_height_world / 2, 0)
 
-        # Now rotate the local offset by the parent's rotation
-        var rotation_transform = Transform3D(Basis.from_euler(parent_rotation), Vector3.ZERO)
-        var popup_center_rotated = rotation_transform * popup_center_local
-
-        # Add to parent's world position
-        var popup_center_world = parent_pos_center + popup_center_rotated
+        # Use parent's global transform to convert local position to world position
+        # This automatically handles rotation correctly
+        var parent_transform = parent_quad.global_transform
+        var popup_center_world = parent_transform * popup_center_local
 
         print("  Positioning popup window ", window_id, " relative to parent ", parent_id)
         print("    Parent pos (pixels): ", parent_pos_px, " size: ", parent_size)
@@ -285,8 +283,8 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
         print("    Offset (pixels): ", offset_x_px, ", ", offset_y_px)
         print("    Parent rotation: ", parent_rotation)
         print("    Popup center (local): ", popup_center_local)
-        print("    Popup center (rotated): ", popup_center_rotated)
         print("    Popup center (world): ", popup_center_world)
+        print("    Popup size (world): ", popup_width_world, " x ", popup_height_world)
 
         return popup_center_world
 
