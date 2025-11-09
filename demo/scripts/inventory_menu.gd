@@ -56,7 +56,11 @@ func _input(event):
 	if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
 		return
 
-	if event.is_action_pressed("ui_tab") or (event is InputEventKey and event.pressed and event.keycode == KEY_I):
+	# Check if search box has focus - if so, don't toggle menu on 'I' key
+	var search_has_focus = search_box and search_box.has_focus()
+
+	# Only toggle menu if search box doesn't have focus
+	if event.is_action_pressed("ui_tab") or (event is InputEventKey and event.pressed and event.keycode == KEY_I and not search_has_focus):
 		toggle_menu()
 		get_viewport().set_input_as_handled()
 

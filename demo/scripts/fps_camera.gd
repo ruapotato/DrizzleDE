@@ -10,6 +10,7 @@ extends Camera3D
 
 var _mouse_captured := false
 var window_interaction: Node = null
+var inventory_menu: Node = null
 
 func _ready():
     Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -22,8 +23,13 @@ func _ready():
         # Try to find it in the scene
         window_interaction = get_node_or_null("/root/Main/WindowInteraction")
 
+    # Find inventory menu
+    inventory_menu = get_node_or_null("/root/Main/InventoryMenu")
+
 func _input(event):
-    # Camera always works - no locking even when window selected
+    # Don't process camera input when inventory menu is open
+    if inventory_menu and inventory_menu.menu_visible:
+        return
 
     if event is InputEventMouseMotion and _mouse_captured:
         rotate_y(-event.relative.x * mouse_sensitivity)
