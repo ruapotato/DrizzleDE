@@ -69,6 +69,13 @@ func _input(event):
 		hide_menu()
 		get_viewport().set_input_as_handled()
 
+	# Enter to launch top app in filtered list
+	if menu_visible and event is InputEventKey and event.pressed and event.keycode == KEY_ENTER:
+		if filtered_applications.size() > 0:
+			var top_app = filtered_applications[0]
+			launch_application(top_app.exec)
+		get_viewport().set_input_as_handled()
+
 func style_panel():
 	# Add some style to the panel
 	var style = StyleBoxFlat.new()

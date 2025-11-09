@@ -48,6 +48,10 @@ func _input(event):
             _mouse_captured = true
 
 func _process(delta):
+    # Don't move if inventory menu is open
+    if inventory_menu and inventory_menu.menu_visible:
+        return
+
     # Don't move if a window is selected - player must look away to deselect
     if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
         return
