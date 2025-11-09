@@ -268,18 +268,18 @@ func launch_application(command: String):
 	print("Launching ", command, " on display ", display)
 
 	# Launch using shell with DISPLAY environment variable
+	# Use sh -c to properly handle the DISPLAY variable and background the process
 	var shell_command = "DISPLAY=%s %s &" % [display, command]
 	print("Executing: ", shell_command)
 
-	var output = []
-	var exit_code = OS.execute("sh", ["-c", shell_command], output, false, false)
+	# Use OS.create_process for non-blocking launch (Godot 4)
+	# This launches the process in the background without freezing Godot
+	var pid = OS.create_process("sh", ["-c", shell_command])
 
-	if exit_code == 0:
-		print("✓ Launched ", command, " successfully")
+	if pid > 0:
+		print("✓ Launched ", command, " successfully (PID: ", pid, ")")
 	else:
-		push_error("✗ Failed to launch ", command, " (exit code: ", exit_code, ")")
-		if output.size() > 0:
-			print("Output: ", output)
+		push_error("✗ Failed to launch ", command)
 
 	print("═══════════════════════════════════════")
 
