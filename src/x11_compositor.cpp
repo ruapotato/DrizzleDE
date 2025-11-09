@@ -2,6 +2,7 @@
 
 #include <godot_cpp/core/class_db.hpp>
 #include <godot_cpp/variant/utility_functions.hpp>
+#include <godot_cpp/classes/engine.hpp>
 
 #include <X11/Xutil.h>
 #include <X11/Xatom.h>
@@ -59,6 +60,12 @@ void X11Compositor::_bind_methods() {
 
 void X11Compositor::_ready() {
     UtilityFunctions::print("X11Compositor ready");
+
+    // Don't initialize in the editor - only in game
+    if (Engine::get_singleton()->is_editor_hint()) {
+        UtilityFunctions::print("Running in editor - skipping X11Compositor initialization");
+        return;
+    }
 
     // Auto-initialize the compositor
     if (!initialize()) {
