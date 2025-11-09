@@ -173,8 +173,17 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
     var material = StandardMaterial3D.new()
     material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-    material.albedo_color = Color(1, 1, 1, 1)
     material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Render from both sides
+
+    # Check if this is a popup window - give it a colored border for visibility
+    var parent_id = compositor.get_parent_window_id(window_id)
+    if parent_id != -1:
+        # Popup window - add bright border to make it very visible
+        material.albedo_color = Color(1, 1, 0.5, 1)  # Slight yellow tint
+        print("  Created POPUP window material (yellow tint)")
+    else:
+        material.albedo_color = Color(1, 1, 1, 1)
+
     quad.material_override = material
 
     # Add collision shape for raycasting
@@ -277,14 +286,21 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
         var parent_transform = parent_quad.global_transform
         var popup_center_world = parent_transform * popup_center_local
 
+        # Calculate distance from camera for debugging
+        var distance_from_camera = "N/A"
+        if camera:
+            distance_from_camera = str(camera.global_position.distance_to(popup_center_world))
+
         print("  Positioning popup window ", window_id, " relative to parent ", parent_id)
         print("    Parent pos (pixels): ", parent_pos_px, " size: ", parent_size)
         print("    Popup pos (pixels): ", popup_pos_px, " size: ", popup_size)
         print("    Offset (pixels): ", offset_x_px, ", ", offset_y_px)
         print("    Parent rotation: ", parent_rotation)
+        print("    Parent world pos: ", parent_pos_center)
         print("    Popup center (local): ", popup_center_local)
         print("    Popup center (world): ", popup_center_world)
-        print("    Popup size (world): ", popup_width_world, " x ", popup_height_world)
+        print("    Popup size (world): ", popup_width_world, " x ", popup_height_world, " (", popup_size.x, "x", popup_size.y, " px)")
+        print("    Distance from camera: ", distance_from_camera)
 
         return popup_center_world
 
