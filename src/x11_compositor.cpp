@@ -957,41 +957,49 @@ void X11Compositor::send_key_event(int window_id, int godot_keycode, bool presse
         return;
     }
 
-    // Track modifier state (static since we need to maintain state across calls)
-    static unsigned int modifier_state = 0;
+    if (xtest_available) {
+        // Use XTest extension for realistic keyboard events (bypasses synthetic event detection)
+        // This works for terminals and other security-conscious applications
+        XTestFakeKeyEvent(display, x11_keycode, pressed ? True : False, CurrentTime);
+        XFlush(display);
+    } else {
+        // Fallback to XSendEvent (may be ignored by terminals and some apps)
+        // Track modifier state (static since we need to maintain state across calls)
+        static unsigned int modifier_state = 0;
 
-    // Update modifier state based on pressed/released modifiers (Godot 4)
-    if (godot_keycode == 4194325) {  // KEY_SHIFT
-        if (pressed) modifier_state |= ShiftMask;
-        else modifier_state &= ~ShiftMask;
+        // Update modifier state based on pressed/released modifiers (Godot 4)
+        if (godot_keycode == 4194325) {  // KEY_SHIFT
+            if (pressed) modifier_state |= ShiftMask;
+            else modifier_state &= ~ShiftMask;
+        }
+        else if (godot_keycode == 4194326) {  // KEY_CTRL
+            if (pressed) modifier_state |= ControlMask;
+            else modifier_state &= ~ControlMask;
+        }
+        else if (godot_keycode == 4194328 || godot_keycode == 4194327) {  // KEY_ALT or KEY_META
+            if (pressed) modifier_state |= Mod1Mask;
+            else modifier_state &= ~Mod1Mask;
+        }
+
+        XEvent event;
+        memset(&event, 0, sizeof(event));
+
+        event.type = pressed ? KeyPress : KeyRelease;
+        event.xkey.window = window->xwindow;
+        event.xkey.root = root_window;
+        event.xkey.subwindow = None;
+        event.xkey.time = CurrentTime;
+        event.xkey.x = 0;
+        event.xkey.y = 0;
+        event.xkey.x_root = 0;
+        event.xkey.y_root = 0;
+        event.xkey.state = modifier_state;  // Include modifier state
+        event.xkey.keycode = x11_keycode;
+        event.xkey.same_screen = True;
+
+        XSendEvent(display, window->xwindow, True, KeyPressMask | KeyReleaseMask, &event);
+        XFlush(display);
     }
-    else if (godot_keycode == 4194326) {  // KEY_CTRL
-        if (pressed) modifier_state |= ControlMask;
-        else modifier_state &= ~ControlMask;
-    }
-    else if (godot_keycode == 4194328 || godot_keycode == 4194327) {  // KEY_ALT or KEY_META
-        if (pressed) modifier_state |= Mod1Mask;
-        else modifier_state &= ~Mod1Mask;
-    }
-
-    XEvent event;
-    memset(&event, 0, sizeof(event));
-
-    event.type = pressed ? KeyPress : KeyRelease;
-    event.xkey.window = window->xwindow;
-    event.xkey.root = root_window;
-    event.xkey.subwindow = None;
-    event.xkey.time = CurrentTime;
-    event.xkey.x = 0;
-    event.xkey.y = 0;
-    event.xkey.x_root = 0;
-    event.xkey.y_root = 0;
-    event.xkey.state = modifier_state;  // Include modifier state
-    event.xkey.keycode = x11_keycode;
-    event.xkey.same_screen = True;
-
-    XSendEvent(display, window->xwindow, True, KeyPressMask | KeyReleaseMask, &event);
-    XFlush(display);
 }
 
 void X11Compositor::set_window_focus(int window_id) {
