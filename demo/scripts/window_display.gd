@@ -281,10 +281,12 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
 		# Z=0.05 puts popup slightly in front of parent in LOCAL space (toward camera)
 		var popup_center_local = popup_topleft_local + Vector3(popup_width_world / 2, -popup_height_world / 2, 0.05)
 
-		# Use parent's global transform to convert local position to world position
-		# This automatically handles rotation correctly
-		var parent_transform = parent_quad.global_transform
-		var popup_center_world = parent_transform * popup_center_local
+		# Apply parent's rotation to the local offset, then add to parent's position
+		# NOTE: We use rotation only, NOT full transform, because we already calculated
+		# the offset in world units and don't want it scaled by parent's scale
+		var rotation_basis = Basis.from_euler(parent_quad.rotation)
+		var rotated_offset = rotation_basis * popup_center_local
+		var popup_center_world = parent_quad.global_position + rotated_offset
 
 		# Calculate distance from camera for debugging
 		var distance_from_camera = "N/A"
