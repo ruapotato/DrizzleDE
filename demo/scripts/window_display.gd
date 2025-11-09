@@ -92,6 +92,7 @@ func create_window_quad(window_id: int, index: int) -> MeshInstance3D:
     material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     material.albedo_color = Color(1, 1, 1, 1)  # White (will be modulated by texture)
+    material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Render from both sides
     quad.material_override = material
 
     # Add collision shape for raycasting
@@ -173,6 +174,7 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
     material.texture_filter = BaseMaterial3D.TEXTURE_FILTER_NEAREST
     material.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
     material.albedo_color = Color(1, 1, 1, 1)
+    material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Render from both sides
     quad.material_override = material
 
     # Add collision shape for raycasting
@@ -196,16 +198,26 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
     # Position the quad with Z offset to prevent Z-fighting
     quad.position = spawn_pos
 
-    # Check if this is a popup window - if so, position in front of parent
+    # Orient the quad to face the camera
+    # For popup windows, inherit parent's rotation
+    # For normal windows, face the camera's current direction
     var parent_id = compositor.get_parent_window_id(window_id)
     if parent_id != -1 and parent_id in window_quads:
-        # Popup window - position in front of parent (closer to camera = higher Z)
+        # Popup window - position in front of parent and match parent rotation
         var parent_quad = window_quads[parent_id]
         quad.position.z = parent_quad.position.z + 0.05  # Clearly in front of parent
+        quad.rotation = parent_quad.rotation  # Face same direction as parent
     else:
-        # Normal window - use incremental offset
+        # Normal window - use incremental offset and face camera
         quad.position.z += next_z_offset
         next_z_offset += 0.01  # Small offset for each window to prevent flickering
+
+        # Make window face the camera (rotate to look at camera)
+        if camera:
+            # Get camera's yaw (Y rotation only, ignore pitch)
+            var camera_yaw = camera.global_rotation.y
+            # Rotate window to face camera direction
+            quad.rotation.y = camera_yaw
 
     # Update app zone tracking
     add_window_to_zone(window_id, app_class, spawn_pos)
