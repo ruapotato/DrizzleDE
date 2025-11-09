@@ -122,6 +122,7 @@ public:
     void send_mouse_motion(int window_id, int x, int y);
     void send_key_event(int window_id, int keycode, bool pressed);
     void set_window_focus(int window_id);
+    void release_all_keys();  // Release all currently pressed keys
 };
 
 } // namespace godot

@@ -319,6 +319,10 @@ func deselect_window():
 	if selected_window_quad:
 		remove_selection_glow(selected_window_quad)
 
+	# Release all keys to prevent stuck key states
+	# This ensures no keys remain "pressed" when switching between windows or deselecting
+	compositor.release_all_keys()
+
 	# Check if the selected window has a parent - if so, try to switch to parent instead
 	var parent_id = -1
 	var window_still_mapped = false

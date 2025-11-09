@@ -56,6 +56,7 @@ void X11Compositor::_bind_methods() {
     ClassDB::bind_method(D_METHOD("send_mouse_motion", "window_id", "x", "y"), &X11Compositor::send_mouse_motion);
     ClassDB::bind_method(D_METHOD("send_key_event", "window_id", "keycode", "pressed"), &X11Compositor::send_key_event);
     ClassDB::bind_method(D_METHOD("set_window_focus", "window_id"), &X11Compositor::set_window_focus);
+    ClassDB::bind_method(D_METHOD("release_all_keys"), &X11Compositor::release_all_keys);
 }
 
 void X11Compositor::_ready() {
@@ -1023,6 +1024,26 @@ void X11Compositor::set_window_focus(int window_id) {
     XRaiseWindow(display, window->xwindow);
 
     XFlush(display);
+}
+
+void X11Compositor::release_all_keys() {
+    if (!display) {
+        return;
+    }
+
+    UtilityFunctions::print("Releasing all keys to prevent stuck key states");
+
+    if (xtest_available) {
+        // Use XTest to release all potentially pressed keys
+        // X11 keycodes range from 8 to 255
+        for (int keycode = 8; keycode < 256; keycode++) {
+            XTestFakeKeyEvent(display, keycode, False, CurrentTime);
+        }
+        XFlush(display);
+    } else {
+        // Without XTest, we can't reliably clear key state
+        UtilityFunctions::print("Warning: XTest not available, cannot release all keys");
+    }
 }
 
 void X11Compositor::cleanup() {
