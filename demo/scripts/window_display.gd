@@ -74,6 +74,13 @@ func _process(delta):
 		var is_mapped = compositor.is_window_mapped(window_id)
 		quad.visible = is_mapped
 
+		# Disable collision for unmapped windows to prevent blocking raycasts
+		var static_body = quad.get_node_or_null("StaticBody3D")
+		if static_body:
+			# Disable collision when unmapped, enable when mapped
+			static_body.set_collision_layer_value(1, is_mapped)
+			static_body.set_collision_mask_value(1, is_mapped)
+
 		# Only update texture for mapped windows
 		if is_mapped:
 			update_window_texture(quad, window_id)

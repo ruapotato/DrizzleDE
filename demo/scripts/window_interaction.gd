@@ -209,8 +209,9 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 				print("  Sending to X11: (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
 				print("━━━━━━━━━━━━━━━━━━━━━━")
 
-	# Forward mouse motion to window
-	if window_id != -1:
+	# Forward mouse motion ONLY to selected window (not hovered)
+	# This prevents accidentally closing menus by sending mouse events to parent
+	if window_id != -1 and current_state == WindowState.SELECTED and window_id == selected_window_id:
 		compositor.send_mouse_motion(
 			window_id,
 			int(window_mouse_pos.x),
@@ -423,7 +424,7 @@ func _input(event):
 			return
 
 		else:
-			print("Click ignored - not ready (can_select=", can_select, ", hover_timer=", hover_timer, ")")
+			#print("Click ignored - not ready (can_select=", can_select, ", hover_timer=", hover_timer, ")")
 			return
 
 	# Forward other mouse buttons
