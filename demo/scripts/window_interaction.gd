@@ -204,7 +204,7 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 				print("  Expected local_pos Y range: ", expected_y_range)
 				print("  Actual local pos: ", local_pos, " (Z should be ~0.005)")
 				print("  Local pos in range? X:", local_pos.x >= expected_x_range.x and local_pos.x <= expected_x_range.y,
-				      " Y:", local_pos.y >= expected_y_range.x and local_pos.y <= expected_y_range.y)
+					  " Y:", local_pos.y >= expected_y_range.x and local_pos.y <= expected_y_range.y)
 				print("  Window size (pixels): ", window_size)
 				print("  Calculated tex coords: (", tex_x, ", ", tex_y, ")")
 				print("  Sending to X11: (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
