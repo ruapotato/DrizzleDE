@@ -316,17 +316,30 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
 
 		return zone_center + Vector3(offset_x - window_spacing, offset_y, 0)
 
-	# New app - spawn near the player's current position
+	# New app - spawn where the player is looking
 	if camera:
-		# Spawn in front of the camera
+		# Raycast from camera to find spawn position
+		var from = camera.global_position
 		var forward = -camera.global_transform.basis.z
-		forward.y = 0  # Keep on same height
-		forward = forward.normalized()
+		var to = from + forward * 100.0  # Cast far
 
-		var spawn_pos = camera.global_position + forward * spawn_distance
-		spawn_pos.y = camera.global_position.y  # Same height as camera
+		var space_state = camera.get_world_3d().direct_space_state
+		var query = PhysicsRayQueryParameters3D.create(from, to)
+		query.collide_with_areas = false
+		query.collide_with_bodies = true
 
-		return spawn_pos
+		var result = space_state.intersect_ray(query)
+
+		if result:
+			# Hit something - spawn at hit point, offset slightly toward camera
+			var spawn_pos = result.position + result.normal * 0.1
+			print("  Spawning new window at raycast hit: ", spawn_pos)
+			return spawn_pos
+		else:
+			# No hit - spawn at fixed distance in look direction
+			var spawn_pos = from + forward * spawn_distance
+			print("  Spawning new window at fixed distance: ", spawn_pos)
+			return spawn_pos
 
 	# Fallback: spawn at origin
 	return Vector3(0, 1.5, -1)
