@@ -29,7 +29,6 @@ var selected_window_quad: MeshInstance3D = null
 # Timing
 var hover_timer := 0.0
 var hover_switch_timer := 0.0  # Prevents rapid switching between overlapping windows
-var can_select := false
 var just_switched_to_parent := false  # Prevents immediate deselection after parent switch
 
 # Mouse tracking
@@ -238,10 +237,10 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 				# Same window - reset switch timer and continue hovering
 				hover_switch_timer = 0.0
 				hover_timer += delta
-				if hover_timer >= hover_delay and not can_select:
-					can_select = true
-					update_hover_visual(true)  # Show "ready to select"
-					print("Window ", window_id, " ready to select (hovered ", hover_timer, "s)")
+				if hover_timer >= hover_delay:
+					# Auto-select after hover delay
+					print("Auto-selecting window ", window_id, " after ", hover_timer, "s hover")
+					select_window(window_id, quad)
 
 		WindowState.SELECTED:
 			# If looking at a different window, auto-deselect and start hovering the new one
@@ -257,14 +256,13 @@ func start_hover(window_id: int, quad: MeshInstance3D):
 	hovered_window_quad = quad
 	hover_timer = 0.0
 	hover_switch_timer = 0.0
-	can_select = false
 
 	add_hover_highlight(quad)
 
 	var window_title = compositor.get_window_title(window_id)
 	var window_class = compositor.get_window_class(window_id)
 	print(">>> HOVERING window ", window_id, ": ", window_title, " [", window_class, "]")
-	print("    Hover for ", hover_delay, "s then click to select")
+	print("    Click to select instantly OR hover for ", hover_delay, "s to auto-select")
 
 func clear_hover():
 	if hovered_window_quad and current_state == WindowState.HOVERED:
@@ -277,7 +275,6 @@ func clear_hover():
 	hovered_window_quad = null
 	hover_timer = 0.0
 	hover_switch_timer = 0.0
-	can_select = false
 
 func select_window(window_id: int, quad: MeshInstance3D):
 	# Clear hover state completely
@@ -298,7 +295,6 @@ func select_window(window_id: int, quad: MeshInstance3D):
 	hovered_window_id = -1
 	hovered_window_quad = null
 	hover_timer = 0.0
-	can_select = false
 
 	# Set X11 focus
 	compositor.set_window_focus(window_id)
@@ -404,9 +400,9 @@ func _input(event):
 		# Mouse button PRESSED
 		print_debug("Mouse click PRESSED - State: ", ["NONE", "HOVERED", "SELECTED"][current_state])
 
-		if current_state == WindowState.HOVERED and can_select:
-			# Select the hovered window
-			print("Click to SELECT window ", hovered_window_id)
+		if current_state == WindowState.HOVERED:
+			# Instant select on click (no hover delay required)
+			print("Click to SELECT window ", hovered_window_id, " (instant)")
 			select_window(hovered_window_id, hovered_window_quad)
 			pulse_click()
 			get_viewport().set_input_as_handled()
