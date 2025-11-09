@@ -210,7 +210,7 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
     # Orient the quad to face the camera
     # For popup windows, inherit parent's rotation
     # For normal windows, face the camera's current direction
-    var parent_id = compositor.get_parent_window_id(window_id)
+    # (parent_id already declared above for material check)
     if parent_id != -1 and parent_id in window_quads:
         # Popup window - position in front of parent and match parent rotation
         var parent_quad = window_quads[parent_id]
