@@ -95,6 +95,7 @@ Built on proven technologies:
 - **Spatial Organization**: Windows grouped by application class with intelligent placement
 - **Full Keyboard Support**: All special keys, modifiers, and text input working correctly
 - **Robust Error Handling**: X11 errors during cleanup silently handled, prevents crashes
+- **System App Discovery**: Application launcher automatically loads all .desktop files with search
 
 ## Requirements
 
@@ -222,8 +223,11 @@ Applications will appear as textured quads in the 3D environment!
 - **Look away** - Auto-deselect selected window
 
 #### Application Launcher
-- **I key** - Toggle inventory menu (when no window selected)
+- **I key** - Toggle application menu (when no window selected)
+- **Search box** - Filter applications by name/description
 - **Click app** - Launch into Xvfb display
+- **ESC** - Close menu
+- Automatically discovers all installed applications from .desktop files
 
 ## Project Structure
 
