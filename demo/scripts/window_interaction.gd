@@ -297,8 +297,15 @@ func select_window(window_id: int, quad: MeshInstance3D):
 	hovered_window_quad = null
 	hover_timer = 0.0
 
-	# Set X11 focus
-	compositor.set_window_focus(window_id)
+	# Set X11 focus ONLY for top-level windows (not popups)
+	# Popup windows (with parent) should not steal focus from their parent
+	var parent_id = compositor.get_parent_window_id(window_id)
+	if parent_id == -1:
+		# Top-level window - set focus normally
+		compositor.set_window_focus(window_id)
+	else:
+		# Popup window - don't change X11 focus (keep parent focused)
+		print("  Popup window - keeping parent focused")
 
 	# Add selection border/glow
 	add_selection_glow(quad)
