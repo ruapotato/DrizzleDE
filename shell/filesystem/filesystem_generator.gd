@@ -356,18 +356,20 @@ func create_hallways(room: RoomNode, subdirs: Array, dir_path: String):
 
 
 func create_hallway(subdir_name: String, full_path: String, angle: float, room_radius: float, is_parent: bool = false) -> Node3D:
-	"""Create a hallway that extends radially outward from the room edge"""
+	"""Create a hallway that extends radially inward toward the room center"""
 	var hallway = Node3D.new()
 	hallway.name = "Hallway_" + subdir_name
 
-	# Position at the edge of the room
-	var x = cos(angle) * room_radius
-	var z = sin(angle) * room_radius
+	# Position OUTSIDE the room perimeter
+	# The hallway extends inward, so position it one hallway-length away from edge
+	var distance_from_center = room_radius + HALLWAY_LENGTH
+	var x = cos(angle) * distance_from_center
+	var z = sin(angle) * distance_from_center
 	hallway.position = Vector3(x, 0, z)
 
-	# Rotate to point outward from room center
-	# The corridor mesh extends in +Z, so we rotate to align +Z with the outward direction
-	hallway.rotation.y = angle
+	# Rotate to point INWARD toward room center
+	# The corridor mesh extends in +Z, so we rotate +Z to point toward center
+	hallway.rotation.y = angle + PI
 
 	# Create corridor walls (left and right)
 	var left_wall = create_wall_mesh(HALLWAY_LENGTH, HALLWAY_HEIGHT, 0.2, is_parent)
@@ -426,13 +428,15 @@ func create_hallway(subdir_name: String, full_path: String, angle: float, room_r
 	hallway.set_meta("directory_name", subdir_name)
 	hallway.set_meta("is_parent", is_parent)
 
-	# Add trigger zone at the END of the hallway
+	# Add trigger zone at the INNER END (room entrance)
+	# Hallway points inward (+Z toward center), so inner end is at +Z
 	var trigger = Area3D.new()
 	trigger.name = "Trigger"
 	var trigger_shape = CollisionShape3D.new()
 	var shape = BoxShape3D.new()
 	shape.size = Vector3(HALLWAY_WIDTH - 0.5, HALLWAY_HEIGHT, 2.0)
 	trigger_shape.shape = shape
+	# Position at inner end (positive Z, near room entrance)
 	trigger_shape.position = Vector3(0, HALLWAY_HEIGHT/2.0, HALLWAY_LENGTH - 1.0)
 	trigger.add_child(trigger_shape)
 	hallway.add_child(trigger)
@@ -504,14 +508,15 @@ func _transition_to_room(target_path: String, source_path: String, went_to_paren
 					break
 
 		if entrance_hallway:
-			# Place player at the entrance to this hallway, facing into the room
+			# Place player at the outer end of the entrance hallway
 			var hallway_pos = entrance_hallway.position
 			var hallway_angle = entrance_hallway.rotation.y
 
-			# Position player just inside the room from the hallway
-			# Offset backward along the hallway direction (into the room)
-			var offset = Vector3(cos(hallway_angle), 0, sin(hallway_angle)) * -2.0
-			player.global_position = current_room.global_position + hallway_pos + offset + Vector3(0, 1.5, 0)
+			# Hallways point inward (+Z toward room center)
+			# Place player at outer end (Z=0 in hallway local space)
+			var offset = Vector3(0, 0, 0.5)  # Just inside the outer entrance
+			var rotated_offset = offset.rotated(Vector3.UP, hallway_angle)
+			player.global_position = current_room.global_position + hallway_pos + rotated_offset + Vector3(0, 1.5, 0)
 
 			# Optionally face the player into the room (away from hallway)
 			# player.rotation.y = hallway_angle + PI
