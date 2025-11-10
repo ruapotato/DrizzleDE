@@ -31,15 +31,15 @@ func _ready():
 	if start_directory.is_empty():
 		start_directory = OS.get_environment("HOME")
 
-	# Generate the starting room asynchronously
-	_generate_room_async(start_directory)
+	# Generate the starting room asynchronously (spawn at center for initial room)
+	_generate_room_async(start_directory, true)
 
 
-func _generate_room_async(dir_path: String):
+func _generate_room_async(dir_path: String, spawn_at_center: bool = false):
 	"""Generate room asynchronously to avoid blocking the game loop"""
 	# Check cache first
 	if room_cache.has(dir_path):
-		enter_room(room_cache[dir_path])
+		enter_room(room_cache[dir_path], spawn_at_center)
 		return
 
 	# Wait one frame before starting to ensure scene is ready
@@ -54,7 +54,7 @@ func _generate_room_async(dir_path: String):
 		# Cache and enter
 		room_cache[dir_path] = room
 		add_child(room)
-		enter_room(room)
+		enter_room(room, spawn_at_center)
 
 
 func _create_room_async(dir_path: String) -> RoomNode:
@@ -366,7 +366,8 @@ func create_hallways(room: RoomNode, subdirs: Array, dir_path: String):
 func create_hallway(subdir_name: String, full_path: String, angle: float, is_parent: bool = false) -> Node3D:
 	var hallway = Node3D.new()
 	hallway.name = "Hallway_" + subdir_name
-	hallway.rotation.y = angle
+	# Rotate to face outward radially from room center
+	hallway.rotation.y = angle - PI/2
 
 	# Create hallway corridor (extends outward from room)
 	var corridor = MeshInstance3D.new()
@@ -416,30 +417,80 @@ func create_hallway(subdir_name: String, full_path: String, angle: float, is_par
 	hallway.set_meta("directory_name", subdir_name)
 	hallway.set_meta("is_parent", is_parent)
 
-	# Add Area3D for player detection (covers the entire hallway)
+	# Add Area3D for player detection (only at the far end of hallway)
 	var area = Area3D.new()
 	var collision_shape = CollisionShape3D.new()
 	var shape = BoxShape3D.new()
-	shape.size = corridor_mesh.size
+	# Smaller detection zone at the far end of the hallway
+	shape.size = Vector3(HALLWAY_WIDTH, HALLWAY_HEIGHT, 1.5)
 	collision_shape.shape = shape
-	collision_shape.position = Vector3(0, HALLWAY_HEIGHT / 2.0, HALLWAY_LENGTH / 2.0)
+	# Position at the far end of the hallway
+	collision_shape.position = Vector3(0, HALLWAY_HEIGHT / 2.0, HALLWAY_LENGTH - 0.75)
 	area.add_child(collision_shape)
 	hallway.add_child(area)
 
 	# Connect signal for player entering hallway
-	area.body_entered.connect(_on_hallway_entered.bind(full_path))
+	area.body_entered.connect(_on_hallway_entered.bind(full_path, is_parent))
 
 	return hallway
 
 
-func _on_hallway_entered(body: Node3D, target_path: String):
+func _on_hallway_entered(body: Node3D, target_path: String, is_parent: bool):
 	if body.name == "Player":
+		# Store the source directory before transitioning
+		var source_dir = current_room.directory_path if current_room else ""
 		# Player entered a hallway, transition to new room
 		print("Entering directory: ", target_path)
-		_generate_room_async(target_path)
+		_transition_to_room(target_path, source_dir, is_parent)
 
 
-func enter_room(room: RoomNode):
+func _transition_to_room(target_path: String, source_path: String, went_to_parent: bool):
+	"""Transition to a new room, placing player at the entrance"""
+	# Unload old room by hiding it (keep it cached though)
+	var old_room = current_room
+
+	# Generate/load the new room
+	await _generate_room_async(target_path)
+
+	# Fully hide the old room now that new room is loaded
+	if old_room and old_room != current_room:
+		old_room.visible = false
+
+	# Position player at appropriate entrance
+	var player = get_tree().get_first_node_in_group("player")
+	if player and current_room:
+		var entrance_hallway = null
+
+		if went_to_parent:
+			# We went UP to parent directory
+			# Find the hallway that leads back down to the subdir we came from
+			var source_dir_name = source_path.get_file()
+			for hw in current_room.hallways:
+				if hw.get_meta("directory_name", "") == source_dir_name and not hw.get_meta("is_parent", false):
+					entrance_hallway = hw
+					break
+		else:
+			# We went DOWN into a subdirectory
+			# Spawn at the parent (..) hallway entrance
+			for hw in current_room.hallways:
+				if hw.get_meta("is_parent", false):
+					entrance_hallway = hw
+					break
+
+		if entrance_hallway:
+			# Place player just inside the room from this hallway
+			var entrance_pos = current_room.global_position + entrance_hallway.position
+			# Offset into the room (opposite direction of hallway)
+			var offset_dir = -entrance_hallway.transform.basis.z * 3.0
+			player.global_position = entrance_pos + offset_dir + Vector3(0, 1.5, 0)
+			print("Spawned at hallway entrance: ", entrance_hallway.name)
+		else:
+			# Fallback: place near room center
+			player.global_position = current_room.global_position + Vector3(0, 2, 0)
+			print("Spawned at room center")
+
+
+func enter_room(room: RoomNode, spawn_at_center: bool = false):
 	# Hide current room
 	if current_room and current_room != room:
 		current_room.visible = false
@@ -448,9 +499,10 @@ func enter_room(room: RoomNode):
 	current_room = room
 	current_room.visible = true
 
-	# Move player to center of room
-	var player = get_tree().get_first_node_in_group("player")
-	if player:
-		player.global_position = room.global_position + Vector3(0, 2, 0)
+	# Only move player to center on initial spawn
+	if spawn_at_center:
+		var player = get_tree().get_first_node_in_group("player")
+		if player:
+			player.global_position = room.global_position + Vector3(0, 2, 0)
 
 	print("Entered room: ", room.directory_path)
