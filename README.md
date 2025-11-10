@@ -41,9 +41,9 @@ Built on proven technologies:
 │  ┌────────────────────────────────────┐ │
 │  │  Godot 4 (DrizzleDE)               │ │
 │  │  - 3D Scene & Navigation           │ │
-│  │  - Camera controller               │ │
-│  │  - Building system (future)        │ │
-│  │  - Window interaction (future)     │ │
+│  │  - First-person controller         │ │
+│  │  - Valheim-style building system   │ │
+│  │  - Window interaction              │ │
 │  │                                    │ │
 │  │  ┌──────────────────────────────┐  │ │
 │  │  │  X11Compositor (GDExtension) │  │ │
@@ -72,7 +72,7 @@ Built on proven technologies:
 
 ## Current Status
 
-🚧 **Early Development** - Core compositor functionality working!
+🚀 **Active Development** - Building system complete, core features working!
 
 - ✅ Project architecture defined
 - ✅ GDExtension with X11/Xvfb integration
@@ -82,13 +82,17 @@ Built on proven technologies:
 - ✅ **Full input handling** (mouse/keyboard forwarding with XTest)
 - ✅ **Spatial window management** (popups positioned relative to parents)
 - ✅ **Interactive window selection** (raycast-based with hover/select states)
-- ⬜ Building system for placing structures
-- ⬜ Window mounting to surfaces
+- ✅ **Valheim-style building system** (foundations, walls, floors, roofs, pillars)
+- ✅ **First-person physics controller** (walk, jump, sprint with ground collision)
+- ⬜ Window mounting to building surfaces
 - ⬜ World save/load system
 - ⬜ Polish and optimization
 
 ### Recent Achievements
 
+- **Valheim-Style Building System**: Complete building system with snap mechanics, 5 piece types, and intuitive placement
+- **First-Person Controller**: Physics-based walking with gravity, jumping, and proper ground collision
+- **Smart Snap System**: Corner-based snapping with cycling (Q key) and stability to prevent flickering
 - **XTest Integration**: Realistic input events that bypass synthetic event detection (fixes Firefox popup menus!)
 - **Popup Window Support**: Transient windows (menus, dialogs) positioned correctly relative to parent windows
 - **Auto-Close Detection**: Popup menus automatically close visually and become non-interactive
@@ -208,12 +212,23 @@ Applications will appear as textured quads in the 3D environment!
 
 ### Controls
 
-#### Camera Movement
-- **WASD** - Move forward/left/backward/right
-- **Space** - Move up
-- **Shift** - Move down
+#### Movement (First-Person)
+- **WASD** - Walk forward/left/backward/right
+- **Space** - Jump
+- **Shift** - Sprint
 - **Mouse** - Look around
 - **Escape** - Release mouse capture
+
+#### Building System
+- **B** - Toggle build mode on/off
+- **Tab** - Show/hide building piece menu (in build mode)
+- **Q** - Cycle through snap points (when snapped to structures)
+- **E** - Rotate building piece (45° increments)
+- **Left Click** - Place building piece
+- **Right Click** - Remove building piece
+- **ESC** - Deselect current piece / exit build mode
+
+See [BUILDING_QUICKSTART.md](BUILDING_QUICKSTART.md) for detailed building system guide.
 
 #### Window Interaction
 - **Look at window** - Hover highlight appears
@@ -238,19 +253,31 @@ DrizzleDE/
 │       ├── bin/                     # Compiled GDExtension libraries
 │       └── x11_compositor.gdextension
 ├── demo/
+│   ├── building/                    # Building system
+│   │   ├── pieces/                  # Building piece scenes (foundations, walls, etc)
+│   │   ├── scripts/                 # Building system scripts
+│   │   │   ├── building_system.gd   # Main building manager
+│   │   │   ├── building_piece.gd    # Base class for pieces
+│   │   │   └── building_ui.gd       # Building menu UI
+│   │   └── scenes/
+│   │       └── building_ui.tscn     # Building UI scene
 │   ├── scenes/
-│   │   └── main.tscn               # Main 3D scene
+│   │   ├── main.tscn                # Main 3D scene
+│   │   └── inventory_menu.tscn      # Application launcher
 │   └── scripts/
-│       ├── fps_camera.gd           # First-person camera controller
-│       └── window_display.gd       # X11 window texture display
+│       ├── player_controller.gd     # Physics-based first-person controller
+│       ├── fps_camera.gd            # Legacy camera (still used)
+│       ├── window_display.gd        # X11 window texture display
+│       └── window_interaction.gd    # Window selection and input
 ├── src/
-│   ├── x11_compositor.hpp          # Main compositor class header
-│   ├── x11_compositor.cpp          # Compositor implementation
-│   ├── register_types.hpp          # GDExtension registration
+│   ├── x11_compositor.hpp           # Main compositor class header
+│   ├── x11_compositor.cpp           # Compositor implementation
+│   ├── register_types.hpp           # GDExtension registration
 │   └── register_types.cpp
 ├── godot-cpp/                       # Godot C++ bindings (submodule)
 ├── build.sh                         # Build script
 ├── SConstruct                       # SCons build configuration
+├── BUILDING_QUICKSTART.md           # Building system guide
 └── project.godot                    # Godot project file
 ```
 
@@ -383,9 +410,10 @@ This project is in early stages. Contributions, ideas, and feedback welcome!
 
 ### Areas for Contribution
 
-- Input handling (mouse/keyboard forwarding to X11 windows)
+- Window mounting to building surfaces (attach windows to walls/floors)
+- World save/load system (persist workspace layouts)
+- Custom building piece meshes (replace placeholder boxes)
 - Optimized window capture using XComposite and XDamage
-- Building system for placing walls/surfaces in 3D space
 - Window management (focus, stacking, virtual desktops)
 - Multi-monitor support
 - VR headset support
