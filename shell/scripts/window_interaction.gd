@@ -118,6 +118,13 @@ func _process(delta):
 
 		var collider = result.collider
 
+		# Check for file cubes first (they have metadata attached to their parent mesh)
+		if collider is StaticBody3D and collider.get_parent():
+			var parent = collider.get_parent()
+			if parent.has_meta("file_path"):
+				handle_file_cube_hit(parent)
+				return
+
 		# Debug what we hit
 		if collider is StaticBody3D:
 			if collider.has_meta("window_id"):
@@ -127,10 +134,10 @@ func _process(delta):
 				if quad and window_id != -1:
 					handle_window_raycast_hit(window_id, quad, result.position, delta)
 					return
-			else:
-				print_debug("Hit StaticBody3D but no window_id metadata")
-		else:
-			print_debug("Hit non-StaticBody3D: ", collider.get_class())
+			# else:
+			# 	print_debug("Hit StaticBody3D but no window_id metadata")
+		# else:
+		# 	print_debug("Hit non-StaticBody3D: ", collider.get_class())
 
 	else:
 		# No hit - place sphere far in front of camera
@@ -144,12 +151,18 @@ func _process(delta):
 		just_switched_to_parent = false
 		return
 
+	# Clear file hover
+	clear_file_hover()
+
 	if current_state == WindowState.HOVERED:
 		clear_hover()
 	elif current_state == WindowState.SELECTED:
 		deselect_window()
 
 func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Vector3, delta: float):
+	# Clear file hover when looking at window
+	clear_file_hover()
+
 	# Skip unmapped (closed) windows - don't allow hover/selection
 	if not compositor.is_window_mapped(window_id):
 		# Window is closed but quad still exists - treat as no hit
@@ -374,6 +387,54 @@ func deselect_window():
 	selected_window_quad = null
 
 # Helper function to find a window quad by window ID
+func handle_file_cube_hit(file_cube: Node3D):
+	# Show file info when hovering
+	var file_path = file_cube.get_meta("file_path", "")
+	var file_name = file_cube.get_meta("file_name", "")
+
+	# Add glow to indicate it's interactive
+	if not file_cube.has_node("HoverGlow"):
+		var glow = MeshInstance3D.new()
+		glow.name = "HoverGlow"
+		file_cube.add_child(glow)
+
+		var outline_mesh = BoxMesh.new()
+		outline_mesh.size = Vector3(0.55, 0.55, 0.55)
+		glow.mesh = outline_mesh
+
+		var glow_mat = StandardMaterial3D.new()
+		glow_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		glow_mat.albedo_color = Color(1.0, 1.0, 0.3, 0.8)
+		glow_mat.emission_enabled = true
+		glow_mat.emission = Color(1.0, 1.0, 0.3)
+		glow_mat.emission_energy_multiplier = 2.0
+		glow_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		glow.material_override = glow_mat
+
+	# Store hovered file cube
+	if not has_meta("hovered_file_cube") or get_meta("hovered_file_cube") != file_cube:
+		# Clear previous hover
+		if has_meta("hovered_file_cube"):
+			var prev_cube = get_meta("hovered_file_cube")
+			if prev_cube and is_instance_valid(prev_cube):
+				var prev_glow = prev_cube.get_node_or_null("HoverGlow")
+				if prev_glow:
+					prev_glow.queue_free()
+
+		set_meta("hovered_file_cube", file_cube)
+		print("Hovering over file: ", file_name, " at ", file_path)
+
+
+func clear_file_hover():
+	if has_meta("hovered_file_cube"):
+		var file_cube = get_meta("hovered_file_cube")
+		if file_cube and is_instance_valid(file_cube):
+			var glow = file_cube.get_node_or_null("HoverGlow")
+			if glow:
+				glow.queue_free()
+		remove_meta("hovered_file_cube")
+
+
 func find_window_quad(window_id: int) -> MeshInstance3D:
 	# Search the WindowDisplay node for the quad
 	var window_display = get_node_or_null("../WindowDisplay")
@@ -407,6 +468,25 @@ func _input(event):
 
 		# Mouse button PRESSED
 		print_debug("Mouse click PRESSED - State: ", ["NONE", "HOVERED", "SELECTED"][current_state])
+
+		# Check for file cube click
+		if has_meta("hovered_file_cube"):
+			var file_cube = get_meta("hovered_file_cube")
+			if file_cube and is_instance_valid(file_cube):
+				var file_path = file_cube.get_meta("file_path", "")
+				print("Opening file: ", file_path)
+
+				# Open the file
+				if file_path.ends_with(".desktop"):
+					# Launch application
+					launch_desktop_file(file_path)
+				else:
+					# Open with default application
+					OS.shell_open(file_path)
+
+				pulse_click()
+				get_viewport().set_input_as_handled()
+				return
 
 		if current_state == WindowState.HOVERED:
 			# Instant select on click (no hover delay required)
@@ -544,3 +624,44 @@ func remove_selection_glow(quad: MeshInstance3D):
 		var mat = quad.material_override as StandardMaterial3D
 		if quad.has_meta("original_albedo"):
 			mat.albedo_color = quad.get_meta("original_albedo")
+
+
+func launch_desktop_file(desktop_file_path: String):
+	## Parse and launch a .desktop file
+	var file = FileAccess.open(desktop_file_path, FileAccess.READ)
+	if not file:
+		print("Failed to read .desktop file: ", desktop_file_path)
+		return
+
+	var exec_line = ""
+	while not file.eof_reached():
+		var line = file.get_line().strip_edges()
+		if line.begins_with("Exec="):
+			exec_line = line.substr(5)  # Remove "Exec="
+			break
+
+	file.close()
+
+	if exec_line.is_empty():
+		print("No Exec line found in .desktop file")
+		return
+
+	# Clean up exec line (remove %U, %F, etc.)
+	exec_line = exec_line.replace("%U", "").replace("%F", "").replace("%u", "").replace("%f", "").strip_edges()
+
+	# Parse command and arguments
+	var parts = exec_line.split(" ", false)
+	if parts.is_empty():
+		return
+
+	var command = parts[0]
+	var args = parts.slice(1)
+
+	# Set DISPLAY environment variable and launch
+	if compositor:
+		var display = compositor.get_display_name()
+		print("Launching: ", command, " with args: ", args, " on display: ", display)
+		OS.set_environment("DISPLAY", display)
+		OS.create_process(command, args)
+	else:
+		print("No compositor found, cannot launch application")

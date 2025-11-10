@@ -8,10 +8,11 @@ Transform your Linux desktop from a flat, constrained 2D plane into an infinite 
 
 ### Core Concept
 
-- **Build Your Workspace**: Place walls, floors, desks, and mounting surfaces to create your ideal digital environment
-- **Spatial Organization**: Group related applications in distinct 3D "rooms" tailored for specific workflows
+- **Navigate Your File System**: Your file system becomes a 3D world - each directory is a room, files are interactive cubes
+- **Spatial File Browsing**: Walk through directories as physical spaces, with hallways connecting to subdirectories
+- **Interactive Files**: Click files to open them, click .desktop files to launch applications in the 3D space
+- **Build Within Your World**: Place walls, floors, and structures within the auto-generated file system rooms
 - **First-Person Navigation**: Walk through your workspace with standard FPS controls
-- **Persistent Worlds**: Save your constructed environments and instantly switch between different workspace layouts
 
 ### Why This Matters
 
@@ -40,10 +41,10 @@ Built on proven technologies:
 │    Your Desktop (X11 or Wayland)        │
 │  ┌────────────────────────────────────┐ │
 │  │  Godot 4 (DrizzleDE)               │ │
-│  │  - 3D Scene & Navigation           │ │
+│  │  - 3D File system navigation       │ │
 │  │  - First-person controller         │ │
 │  │  - Valheim-style building system   │ │
-│  │  - Window interaction              │ │
+│  │  - Window & file interaction       │ │
 │  │                                    │ │
 │  │  ┌──────────────────────────────┐  │ │
 │  │  │  X11Compositor (GDExtension) │  │ │
@@ -72,7 +73,7 @@ Built on proven technologies:
 
 ## Current Status
 
-🚀 **Active Development** - Building system complete, core features working!
+🚀 **Active Development** - File system navigation implemented, core features working!
 
 - ✅ Project architecture defined
 - ✅ GDExtension with X11/Xvfb integration
@@ -82,6 +83,8 @@ Built on proven technologies:
 - ✅ **Full input handling** (mouse/keyboard forwarding with XTest)
 - ✅ **Spatial window management** (popups positioned relative to parents)
 - ✅ **Interactive window selection** (raycast-based with hover/select states)
+- ✅ **3D File System Navigation** (directories as rooms, files as interactive cubes)
+- ✅ **File Interaction System** (open files, launch .desktop applications)
 - ✅ **Valheim-style building system** (foundations, walls, floors, roofs, pillars)
 - ✅ **First-person physics controller** (walk, jump, sprint with ground collision)
 - ⬜ Window mounting to building surfaces
@@ -90,16 +93,16 @@ Built on proven technologies:
 
 ### Recent Achievements
 
+- **3D File System Navigation**: Your file system is now a navigable 3D world! Each directory is a room, subdirectories are hallways, and files are interactive cubes
+- **Interactive File Cubes**: Click files to open them with default applications, click .desktop files to launch apps in the 3D space
+- **Spatial File Browsing**: Files are organized in color-coded cubes (blue for code, purple for images, green for apps, etc.)
+- **Room-Based Directories**: Directories auto-generate as rooms with floors, with size scaling based on content
+- **Project Restructuring**: Separated demo (minimal X11 example) from shell (full application)
 - **Valheim-Style Building System**: Complete building system with snap mechanics, 5 piece types, and intuitive placement
 - **First-Person Controller**: Physics-based walking with gravity, jumping, and proper ground collision
-- **Smart Snap System**: Corner-based snapping with cycling (Q key) and stability to prevent flickering
 - **XTest Integration**: Realistic input events that bypass synthetic event detection (fixes Firefox popup menus!)
 - **Popup Window Support**: Transient windows (menus, dialogs) positioned correctly relative to parent windows
-- **Auto-Close Detection**: Popup menus automatically close visually and become non-interactive
-- **Spatial Organization**: Windows grouped by application class with intelligent placement
 - **Full Keyboard Support**: All special keys, modifiers, and text input working correctly
-- **Robust Error Handling**: X11 errors during cleanup silently handled, prevents crashes
-- **System App Discovery**: Application launcher automatically loads all .desktop files with search
 
 ## Requirements
 
@@ -252,32 +255,33 @@ DrizzleDE/
 │   └── x11_compositor/
 │       ├── bin/                     # Compiled GDExtension libraries
 │       └── x11_compositor.gdextension
-├── demo/
+├── shell/                           # Main DrizzleDE application
+│   ├── filesystem/                  # File system navigation
+│   │   ├── filesystem_generator.gd  # Generates rooms from directories
+│   │   ├── room_node.gd             # Directory room representation
+│   │   └── file_cube.gd             # Interactive file cube
 │   ├── building/                    # Building system
-│   │   ├── pieces/                  # Building piece scenes (foundations, walls, etc)
+│   │   ├── pieces/                  # Building piece scenes
 │   │   ├── scripts/                 # Building system scripts
-│   │   │   ├── building_system.gd   # Main building manager
-│   │   │   ├── building_piece.gd    # Base class for pieces
-│   │   │   └── building_ui.gd       # Building menu UI
-│   │   └── scenes/
-│   │       └── building_ui.tscn     # Building UI scene
+│   │   └── scenes/                  # Building UI
 │   ├── scenes/
 │   │   ├── main.tscn                # Main 3D scene
 │   │   └── inventory_menu.tscn      # Application launcher
 │   └── scripts/
-│       ├── player_controller.gd     # Physics-based first-person controller
-│       ├── fps_camera.gd            # Legacy camera (still used)
-│       ├── window_display.gd        # X11 window texture display
-│       └── window_interaction.gd    # Window selection and input
-├── src/
-│   ├── x11_compositor.hpp           # Main compositor class header
-│   ├── x11_compositor.cpp           # Compositor implementation
-│   ├── register_types.hpp           # GDExtension registration
+│       ├── player_controller.gd     # First-person controller
+│       ├── window_display.gd        # X11 window display
+│       └── window_interaction.gd    # Window & file interaction
+├── demo/                            # Minimal X11 compositor demo
+│   └── scripts/
+│       └── window_display.gd        # Basic window rendering example
+├── src/                             # C++ GDExtension source
+│   ├── x11_compositor.hpp
+│   ├── x11_compositor.cpp
+│   ├── register_types.hpp
 │   └── register_types.cpp
 ├── godot-cpp/                       # Godot C++ bindings (submodule)
 ├── build.sh                         # Build script
 ├── SConstruct                       # SCons build configuration
-├── BUILDING_QUICKSTART.md           # Building system guide
 └── project.godot                    # Godot project file
 ```
 

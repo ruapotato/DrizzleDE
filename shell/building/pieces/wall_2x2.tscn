@@ -1,6 +1,6 @@
 [gd_scene load_steps=4 format=3 uid="uid://building_wall_2x2"]
 
-[ext_resource type="Script" path="res://demo/building/scripts/building_piece.gd" id="1"]
+[ext_resource type="Script" path="res://shell/building/scripts/building_piece.gd" id="1"]
 
 [sub_resource type="BoxMesh" id="BoxMesh_wall"]
 size = Vector3(2, 2, 0.2)

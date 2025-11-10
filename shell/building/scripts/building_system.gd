@@ -54,27 +54,27 @@ func _register_building_pieces():
 	# These will be loaded from the pieces directory
 	building_pieces = {
 		"foundation_2x2": {
-			"scene": "res://demo/building/pieces/foundation_2x2.tscn",
+			"scene": "res://shell/building/pieces/foundation_2x2.tscn",
 			"name": "Foundation 2x2",
 			"category": "Foundation"
 		},
 		"wall_2x2": {
-			"scene": "res://demo/building/pieces/wall_2x2.tscn",
+			"scene": "res://shell/building/pieces/wall_2x2.tscn",
 			"name": "Wall 2x2",
 			"category": "Walls"
 		},
 		"floor_2x2": {
-			"scene": "res://demo/building/pieces/floor_2x2.tscn",
+			"scene": "res://shell/building/pieces/floor_2x2.tscn",
 			"name": "Floor 2x2",
 			"category": "Floors"
 		},
 		"roof_45deg": {
-			"scene": "res://demo/building/pieces/roof_45deg.tscn",
+			"scene": "res://shell/building/pieces/roof_45deg.tscn",
 			"name": "Roof 45°",
 			"category": "Roofs"
 		},
 		"pillar": {
-			"scene": "res://demo/building/pieces/pillar.tscn",
+			"scene": "res://shell/building/pieces/pillar.tscn",
 			"name": "Pillar",
 			"category": "Support"
 		}

@@ -36,7 +36,7 @@ func _ready():
 
 func _input(event):
     # Don't process camera input when inventory menu is open
-    if inventory_menu and inventory_menu.menu_visible:
+    if inventory_menu and inventory_menu.get("menu_visible"):
         return
 
     # Don't process camera input when building UI is visible
@@ -68,7 +68,7 @@ func _input(event):
 
 func _process(delta):
     # Don't move if inventory menu is open
-    if inventory_menu and inventory_menu.menu_visible:
+    if inventory_menu and inventory_menu.get("menu_visible"):
         return
 
     # Don't move if building UI is visible (menu mode)

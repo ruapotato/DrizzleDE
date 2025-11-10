@@ -31,7 +31,7 @@ func _ready():
 
 func _input(event):
 	# Don't process camera input when inventory menu is open
-	if inventory_menu and inventory_menu.menu_visible:
+	if inventory_menu and inventory_menu.get("menu_visible"):
 		# Ensure mouse is visible
 		if Input.get_mouse_mode() != Input.MOUSE_MODE_VISIBLE:
 			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -70,7 +70,7 @@ func _input(event):
 
 func _physics_process(delta):
 	# Don't move if inventory menu is open
-	if inventory_menu and inventory_menu.menu_visible:
+	if inventory_menu and inventory_menu.get("menu_visible"):
 		return
 
 	# Only block movement if building UI menu is visible (not when just holding a piece)

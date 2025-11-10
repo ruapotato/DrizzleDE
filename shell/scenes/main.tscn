@@ -1,11 +1,12 @@
-[gd_scene load_steps=15 format=3 uid="uid://bkqwx8yjnm7cp"]
+[gd_scene load_steps=12 format=3 uid="uid://bkqwx8yjnm7cp"]
 
-[ext_resource type="Script" uid="uid://d3r5i1wqfj4ky" path="res://demo/scripts/player_controller.gd" id="1_player_controller"]
-[ext_resource type="Script" uid="uid://bcuyoile8ks05" path="res://demo/scripts/window_display.gd" id="2_window_display"]
-[ext_resource type="Script" uid="uid://b0h1aqxyc705e" path="res://demo/scripts/window_interaction.gd" id="3_window_interaction"]
-[ext_resource type="PackedScene" uid="uid://bcjxm5yvp8cqb" path="res://demo/scenes/inventory_menu.tscn" id="4_inventory_menu"]
-[ext_resource type="Script" uid="uid://3ov8uh2vq4j4" path="res://demo/building/scripts/building_system.gd" id="5_building_system"]
-[ext_resource type="PackedScene" path="res://demo/building/scenes/building_ui.tscn" id="6_building_ui"]
+[ext_resource type="Script" uid="uid://d3r5i1wqfj4ky" path="res://shell/scripts/player_controller.gd" id="1_player_controller"]
+[ext_resource type="Script" uid="uid://bcuyoile8ks05" path="res://shell/scripts/window_display.gd" id="2_window_display"]
+[ext_resource type="Script" uid="uid://b0h1aqxyc705e" path="res://shell/scripts/window_interaction.gd" id="3_window_interaction"]
+[ext_resource type="PackedScene" uid="uid://bcjxm5yvp8cqb" path="res://shell/scenes/inventory_menu.tscn" id="4_inventory_menu"]
+[ext_resource type="Script" uid="uid://3ov8uh2vq4j4" path="res://shell/building/scripts/building_system.gd" id="5_building_system"]
+[ext_resource type="PackedScene" path="res://shell/building/scenes/building_ui.tscn" id="6_building_ui"]
+[ext_resource type="Script" uid="uid://qbdac64bjiug" path="res://shell/filesystem/filesystem_generator.gd" id="7_filesystem"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_3f4o0"]
 sky_top_color = Color(0.305882, 0.756863, 0.996078, 1)
@@ -23,21 +24,12 @@ sky = SubResource("Sky_he7gk")
 radius = 0.4
 height = 1.8
 
-[sub_resource type="PlaneMesh" id="PlaneMesh_1"]
-size = Vector2(10, 10)
-
-[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
-albedo_color = Color(0.2, 0.2, 0.25, 1)
-
-[sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
-size = Vector3(100, 0.1, 100)
-
-[sub_resource type="QuadMesh" id="QuadMesh_1"]
-size = Vector2(2, 2)
-
 [node name="Main" type="Node3D"]
 
 [node name="X11Compositor" type="X11Compositor" parent="."]
+
+[node name="FileSystemGenerator" type="Node3D" parent="."]
+script = ExtResource("7_filesystem")
 
 [node name="WorldEnvironment" type="WorldEnvironment" parent="."]
 environment = SubResource("Environment_k3x0h")
@@ -46,7 +38,7 @@ environment = SubResource("Environment_k3x0h")
 transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 5, 0)
 shadow_enabled = true
 
-[node name="Player" type="CharacterBody3D" parent="."]
+[node name="Player" type="CharacterBody3D" parent="." groups=["player"]]
 transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 3)
 script = ExtResource("1_player_controller")
 
@@ -78,18 +70,3 @@ placement_range = 10.0
 
 [node name="BuildingUI" parent="." instance=ExtResource("6_building_ui")]
 building_system_path = NodePath("../BuildingSystem")
-
-[node name="Floor" type="StaticBody3D" parent="."]
-
-[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor"]
-transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
-mesh = SubResource("PlaneMesh_1")
-surface_material_override/0 = SubResource("StandardMaterial3D_floor")
-
-[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor"]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
-shape = SubResource("BoxShape3D_floor")
-
-[node name="ReferencePlane" type="MeshInstance3D" parent="."]
-transform = Transform3D(5, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, -2)
-mesh = SubResource("QuadMesh_1")
