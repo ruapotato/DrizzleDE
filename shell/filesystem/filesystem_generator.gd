@@ -11,6 +11,7 @@ const RoomNode = preload("res://shell/filesystem/room_node.gd")
 const ROOM_BASE_SIZE = 10.0  # Base room size in meters
 const HALLWAY_WIDTH = 3.0
 const HALLWAY_HEIGHT = 3.0
+const HALLWAY_LENGTH = 5.0  # How far hallways extend from the room
 const FILE_CUBE_SIZE = 0.5
 const FILE_SPACING = 1.0
 const MAX_FILES_DISPLAY = 100  # Limit files displayed to prevent performance issues
@@ -321,59 +322,107 @@ func get_file_type_color(file_name: String) -> Color:
 
 
 func create_hallways(room: RoomNode, subdirs: Array, dir_path: String):
-	# Create hallways around the perimeter
-	var angle_step = TAU / max(1, subdirs.size())
-	var radius = room.room_size.x / 2.0 + HALLWAY_WIDTH
+	# Add parent directory hallway (../) for non-root directories
+	var parent_path = dir_path.get_base_dir()
+	var is_root = (parent_path == dir_path or dir_path == "/" or parent_path.is_empty())
 
-	for i in range(subdirs.size()):
-		var angle = i * angle_step
+	# Total number of hallways including parent
+	var total_hallways = subdirs.size()
+	if not is_root:
+		total_hallways += 1
+
+	if total_hallways == 0:
+		return  # No hallways to create
+
+	var angle_step = TAU / total_hallways
+	var radius = room.room_size.x / 2.0
+	var hallway_index = 0
+
+	# Create parent directory hallway first (always at angle 0, facing forward)
+	if not is_root:
+		var angle = 0.0
 		var x = cos(angle) * radius
 		var z = sin(angle) * radius
 
-		var hallway = create_hallway(subdirs[i], dir_path.path_join(subdirs[i]), angle)
+		var hallway = create_hallway("..", parent_path, angle, true)
 		hallway.position = Vector3(x, 0, z)
 		room.add_child(hallway)
 		room.hallways.append(hallway)
+		hallway_index += 1
+
+	# Create subdirectory hallways around the perimeter
+	for i in range(subdirs.size()):
+		var angle = hallway_index * angle_step
+		var x = cos(angle) * radius
+		var z = sin(angle) * radius
+
+		var hallway = create_hallway(subdirs[i], dir_path.path_join(subdirs[i]), angle, false)
+		hallway.position = Vector3(x, 0, z)
+		room.add_child(hallway)
+		room.hallways.append(hallway)
+		hallway_index += 1
 
 
-func create_hallway(subdir_name: String, full_path: String, angle: float) -> Node3D:
+func create_hallway(subdir_name: String, full_path: String, angle: float, is_parent: bool = false) -> Node3D:
 	var hallway = Node3D.new()
 	hallway.name = "Hallway_" + subdir_name
 	hallway.rotation.y = angle
 
-	# Create hallway visual
-	var mesh_instance = MeshInstance3D.new()
-	var mesh = BoxMesh.new()
-	mesh.size = Vector3(HALLWAY_WIDTH, HALLWAY_HEIGHT, 2.0)
-	mesh_instance.mesh = mesh
-	mesh_instance.position = Vector3(0, HALLWAY_HEIGHT / 2.0, 0)
+	# Create hallway corridor (extends outward from room)
+	var corridor = MeshInstance3D.new()
+	var corridor_mesh = BoxMesh.new()
+	corridor_mesh.size = Vector3(HALLWAY_WIDTH, HALLWAY_HEIGHT, HALLWAY_LENGTH)
+	corridor.mesh = corridor_mesh
+	# Position the corridor so it extends outward from the room edge
+	corridor.position = Vector3(0, HALLWAY_HEIGHT / 2.0, HALLWAY_LENGTH / 2.0)
 
 	var mat = StandardMaterial3D.new()
-	mat.albedo_color = Color(0.5, 0.5, 0.8, 0.5)
+	# Parent directory hallways are a different color (yellow/gold)
+	if is_parent:
+		mat.albedo_color = Color(0.8, 0.7, 0.3, 0.6)
+	else:
+		mat.albedo_color = Color(0.5, 0.5, 0.8, 0.5)
 	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mesh_instance.set_surface_override_material(0, mat)
+	corridor.set_surface_override_material(0, mat)
 
-	hallway.add_child(mesh_instance)
+	hallway.add_child(corridor)
 
-	# Add label
+	# Add hallway floor for better visual
+	var floor = MeshInstance3D.new()
+	var floor_mesh = BoxMesh.new()
+	floor_mesh.size = Vector3(HALLWAY_WIDTH, 0.1, HALLWAY_LENGTH)
+	floor.mesh = floor_mesh
+	floor.position = Vector3(0, 0.05, HALLWAY_LENGTH / 2.0)
+
+	var floor_mat = StandardMaterial3D.new()
+	floor_mat.albedo_color = Color(0.4, 0.4, 0.4)
+	floor.set_surface_override_material(0, floor_mat)
+
+	hallway.add_child(floor)
+
+	# Add label at the far end of the hallway
 	var label = Label3D.new()
-	label.text = "→ " + subdir_name
+	if is_parent:
+		label.text = "← " + subdir_name  # Back arrow for parent
+	else:
+		label.text = "→ " + subdir_name  # Forward arrow for subdirs
 	label.font_size = 16
-	label.position = Vector3(0, HALLWAY_HEIGHT / 2.0, 0)
+	label.position = Vector3(0, HALLWAY_HEIGHT / 2.0, HALLWAY_LENGTH)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
 	hallway.add_child(label)
 
 	# Store directory info
 	hallway.set_meta("directory_path", full_path)
 	hallway.set_meta("directory_name", subdir_name)
+	hallway.set_meta("is_parent", is_parent)
 
-	# Add Area3D for player detection
+	# Add Area3D for player detection (covers the entire hallway)
 	var area = Area3D.new()
 	var collision_shape = CollisionShape3D.new()
 	var shape = BoxShape3D.new()
-	shape.size = mesh.size
+	shape.size = corridor_mesh.size
 	collision_shape.shape = shape
-	collision_shape.position = Vector3(0, HALLWAY_HEIGHT / 2.0, 0)
+	collision_shape.position = Vector3(0, HALLWAY_HEIGHT / 2.0, HALLWAY_LENGTH / 2.0)
 	area.add_child(collision_shape)
 	hallway.add_child(area)
 
