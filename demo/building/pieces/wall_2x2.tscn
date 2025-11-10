@@ -1,0 +1,46 @@
+[gd_scene load_steps=4 format=3 uid="uid://building_wall_2x2"]
+
+[ext_resource type="Script" path="res://demo/building/scripts/building_piece.gd" id="1"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_wall"]
+size = Vector3(2, 2, 0.2)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_wall"]
+size = Vector3(2, 2, 0.2)
+
+[node name="Wall2x2" type="StaticBody3D"]
+script = ExtResource("1")
+piece_name = "Wall 2x2"
+piece_category = "Walls"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+mesh = SubResource("BoxMesh_wall")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+shape = SubResource("BoxShape3D_wall")
+
+[node name="SnapPoints" type="Node3D" parent="."]
+
+[node name="TopCenter" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)
+
+[node name="BottomCenter" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+
+[node name="TopLeft" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 1, 0)
+
+[node name="TopRight" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1, 0)
+
+[node name="BottomLeft" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, -1, 0)
+
+[node name="BottomRight" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, -1, 0)
+
+[node name="Left" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -1, 0, 0)
+
+[node name="Right" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 0, 0)

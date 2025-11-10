@@ -1,9 +1,11 @@
-[gd_scene load_steps=11 format=3 uid="uid://bkqwx8yjnm7cp"]
+[gd_scene load_steps=15 format=3 uid="uid://bkqwx8yjnm7cp"]
 
-[ext_resource type="Script" uid="uid://b8jp3042djyoi" path="res://demo/scripts/fps_camera.gd" id="1_fps_camera"]
+[ext_resource type="Script" uid="uid://d3r5i1wqfj4ky" path="res://demo/scripts/player_controller.gd" id="1_player_controller"]
 [ext_resource type="Script" uid="uid://bcuyoile8ks05" path="res://demo/scripts/window_display.gd" id="2_window_display"]
 [ext_resource type="Script" uid="uid://b0h1aqxyc705e" path="res://demo/scripts/window_interaction.gd" id="3_window_interaction"]
 [ext_resource type="PackedScene" uid="uid://bcjxm5yvp8cqb" path="res://demo/scenes/inventory_menu.tscn" id="4_inventory_menu"]
+[ext_resource type="Script" uid="uid://3ov8uh2vq4j4" path="res://demo/building/scripts/building_system.gd" id="5_building_system"]
+[ext_resource type="PackedScene" path="res://demo/building/scenes/building_ui.tscn" id="6_building_ui"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_3f4o0"]
 sky_top_color = Color(0.305882, 0.756863, 0.996078, 1)
@@ -17,11 +19,18 @@ sky_material = SubResource("ProceduralSkyMaterial_3f4o0")
 background_mode = 2
 sky = SubResource("Sky_he7gk")
 
+[sub_resource type="CapsuleShape3D" id="CapsuleShape3D_player"]
+radius = 0.4
+height = 1.8
+
 [sub_resource type="PlaneMesh" id="PlaneMesh_1"]
 size = Vector2(10, 10)
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_floor"]
 albedo_color = Color(0.2, 0.2, 0.25, 1)
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_floor"]
+size = Vector3(100, 0.1, 100)
 
 [sub_resource type="QuadMesh" id="QuadMesh_1"]
 size = Vector2(2, 2)
@@ -37,29 +46,49 @@ environment = SubResource("Environment_k3x0h")
 transform = Transform3D(0.866025, -0.433013, 0.25, 0, 0.5, 0.866025, -0.5, -0.75, 0.433013, 0, 5, 0)
 shadow_enabled = true
 
-[node name="Camera" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.7, 3)
-script = ExtResource("1_fps_camera")
-window_interaction_path = NodePath("../WindowInteraction")
+[node name="Player" type="CharacterBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 3)
+script = ExtResource("1_player_controller")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.9, 0)
+shape = SubResource("CapsuleShape3D_player")
+
+[node name="Camera" type="Camera3D" parent="Player"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
 
 [node name="WindowDisplay" type="Node3D" parent="."]
 script = ExtResource("2_window_display")
 compositor_path = NodePath("../X11Compositor")
-camera_path = NodePath("../Camera")
+camera_path = NodePath("../Player/Camera")
 
 [node name="WindowInteraction" type="Node3D" parent="."]
 script = ExtResource("3_window_interaction")
-camera_path = NodePath("../Camera")
+camera_path = NodePath("../Player/Camera")
 compositor_path = NodePath("../X11Compositor")
 
 [node name="InventoryMenu" parent="." instance=ExtResource("4_inventory_menu")]
 compositor_path = NodePath("../X11Compositor")
 window_interaction_path = NodePath("../WindowInteraction")
 
-[node name="Floor" type="MeshInstance3D" parent="."]
+[node name="BuildingSystem" type="Node3D" parent="."]
+script = ExtResource("5_building_system")
+camera_path = NodePath("../Player/Camera")
+placement_range = 10.0
+
+[node name="BuildingUI" parent="." instance=ExtResource("6_building_ui")]
+building_system_path = NodePath("../BuildingSystem")
+
+[node name="Floor" type="StaticBody3D" parent="."]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Floor"]
 transform = Transform3D(10, 0, 0, 0, 1, 0, 0, 0, 10, 0, 0, 0)
 mesh = SubResource("PlaneMesh_1")
 surface_material_override/0 = SubResource("StandardMaterial3D_floor")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Floor"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -0.05, 0)
+shape = SubResource("BoxShape3D_floor")
 
 [node name="ReferencePlane" type="MeshInstance3D" parent="."]
 transform = Transform3D(5, 0, 0, 0, 3, 0, 0, 0, 1, 0, 0, -2)

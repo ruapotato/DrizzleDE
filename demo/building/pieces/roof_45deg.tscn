@@ -1,0 +1,33 @@
+[gd_scene load_steps=4 format=3 uid="uid://building_roof_45deg"]
+
+[ext_resource type="Script" path="res://demo/building/scripts/building_piece.gd" id="1"]
+
+[sub_resource type="PrismMesh" id="PrismMesh_roof"]
+size = Vector3(2, 1, 2)
+
+[sub_resource type="ConvexPolygonShape3D" id="ConvexShape3D_roof"]
+points = PackedVector3Array(-1, 0, 1, 1, 0, 1, -1, 0, -1, 1, 0, -1, 0, 1, 1, 0, 1, -1)
+
+[node name="Roof45deg" type="StaticBody3D"]
+script = ExtResource("1")
+piece_name = "Roof 45°"
+piece_category = "Roofs"
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+mesh = SubResource("PrismMesh_roof")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.5, 0)
+shape = SubResource("ConvexShape3D_roof")
+
+[node name="SnapPoints" type="Node3D" parent="."]
+
+[node name="BottomNorth" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, -1)
+
+[node name="BottomSouth" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1)
+
+[node name="Peak" type="Node3D" parent="SnapPoints" groups=["snap_point"]]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0)

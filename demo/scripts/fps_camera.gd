@@ -7,10 +7,12 @@ extends Camera3D
 @export var move_speed := 5.0
 @export var sprint_multiplier := 2.0
 @export var window_interaction_path: NodePath
+@export var building_system_path: NodePath
 
 var _mouse_captured := false
 var window_interaction: Node = null
 var inventory_menu: Node = null
+var building_system: Node = null
 
 func _ready():
     Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -26,10 +28,22 @@ func _ready():
     # Find inventory menu
     inventory_menu = get_node_or_null("/root/Main/InventoryMenu")
 
+    # Find building system
+    if building_system_path:
+        building_system = get_node(building_system_path)
+    else:
+        building_system = get_node_or_null("/root/Main/BuildingSystem")
+
 func _input(event):
     # Don't process camera input when inventory menu is open
     if inventory_menu and inventory_menu.menu_visible:
         return
+
+    # Don't process camera input when building UI is visible
+    if building_system and building_system.build_mode:
+        var building_ui = get_node_or_null("/root/Main/BuildingUI")
+        if building_ui and building_ui.visible:
+            return
 
     if event is InputEventMouseMotion and _mouse_captured:
         rotate_y(-event.relative.x * mouse_sensitivity)
@@ -40,6 +54,11 @@ func _input(event):
         rotation = camera_rot
 
     if event.is_action_pressed("ui_cancel"):
+        # Exit build mode if active
+        if building_system and building_system.build_mode:
+            building_system.toggle_build_mode()
+            return
+
         if _mouse_captured:
             Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
             _mouse_captured = false
@@ -51,6 +70,12 @@ func _process(delta):
     # Don't move if inventory menu is open
     if inventory_menu and inventory_menu.menu_visible:
         return
+
+    # Don't move if building UI is visible (menu mode)
+    if building_system and building_system.build_mode:
+        var building_ui = get_node_or_null("/root/Main/BuildingUI")
+        if building_ui and building_ui.visible:
+            return
 
     # Don't move if a window is selected - player must look away to deselect
     if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
