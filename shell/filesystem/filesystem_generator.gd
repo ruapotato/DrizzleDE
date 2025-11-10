@@ -338,14 +338,10 @@ func create_hallways(room: RoomNode, subdirs: Array, dir_path: String):
 	var radius = room.room_size.x / 2.0
 	var hallway_index = 0
 
-	# Create parent directory hallway first (always at angle 0, facing forward)
+	# Create parent directory hallway first (at the back, angle PI)
 	if not is_root:
-		var angle = 0.0
-		var x = cos(angle) * radius
-		var z = sin(angle) * radius
-
-		var hallway = create_hallway("..", parent_path, angle, true)
-		hallway.position = Vector3(x, 0, z)
+		var angle = PI  # Behind the player spawn
+		var hallway = create_hallway("..", parent_path, angle, radius, true)
 		room.add_child(hallway)
 		room.hallways.append(hallway)
 		hallway_index += 1
@@ -353,86 +349,116 @@ func create_hallways(room: RoomNode, subdirs: Array, dir_path: String):
 	# Create subdirectory hallways around the perimeter
 	for i in range(subdirs.size()):
 		var angle = hallway_index * angle_step
-		var x = cos(angle) * radius
-		var z = sin(angle) * radius
-
-		var hallway = create_hallway(subdirs[i], dir_path.path_join(subdirs[i]), angle, false)
-		hallway.position = Vector3(x, 0, z)
+		var hallway = create_hallway(subdirs[i], dir_path.path_join(subdirs[i]), angle, radius, false)
 		room.add_child(hallway)
 		room.hallways.append(hallway)
 		hallway_index += 1
 
 
-func create_hallway(subdir_name: String, full_path: String, angle: float, is_parent: bool = false) -> Node3D:
+func create_hallway(subdir_name: String, full_path: String, angle: float, room_radius: float, is_parent: bool = false) -> Node3D:
+	"""Create a hallway that extends radially outward from the room edge"""
 	var hallway = Node3D.new()
 	hallway.name = "Hallway_" + subdir_name
-	# Rotate to face outward radially from room center
-	hallway.rotation.y = angle - PI/2
 
-	# Create hallway corridor (extends outward from room)
-	var corridor = MeshInstance3D.new()
-	var corridor_mesh = BoxMesh.new()
-	corridor_mesh.size = Vector3(HALLWAY_WIDTH, HALLWAY_HEIGHT, HALLWAY_LENGTH)
-	corridor.mesh = corridor_mesh
-	# Position the corridor so it extends outward from the room edge
-	corridor.position = Vector3(0, HALLWAY_HEIGHT / 2.0, HALLWAY_LENGTH / 2.0)
+	# Position at the edge of the room
+	var x = cos(angle) * room_radius
+	var z = sin(angle) * room_radius
+	hallway.position = Vector3(x, 0, z)
 
-	var mat = StandardMaterial3D.new()
-	# Parent directory hallways are a different color (yellow/gold)
-	if is_parent:
-		mat.albedo_color = Color(0.8, 0.7, 0.3, 0.6)
-	else:
-		mat.albedo_color = Color(0.5, 0.5, 0.8, 0.5)
-	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	corridor.set_surface_override_material(0, mat)
+	# Rotate to point outward from room center
+	# The corridor mesh extends in +Z, so we rotate to align +Z with the outward direction
+	hallway.rotation.y = angle
 
-	hallway.add_child(corridor)
+	# Create corridor walls (left and right)
+	var left_wall = create_wall_mesh(HALLWAY_LENGTH, HALLWAY_HEIGHT, 0.2, is_parent)
+	left_wall.position = Vector3(-HALLWAY_WIDTH/2.0, HALLWAY_HEIGHT/2.0, HALLWAY_LENGTH/2.0)
+	hallway.add_child(left_wall)
 
-	# Add hallway floor for better visual
+	var right_wall = create_wall_mesh(HALLWAY_LENGTH, HALLWAY_HEIGHT, 0.2, is_parent)
+	right_wall.position = Vector3(HALLWAY_WIDTH/2.0, HALLWAY_HEIGHT/2.0, HALLWAY_LENGTH/2.0)
+	hallway.add_child(right_wall)
+
+	# Create floor
 	var floor = MeshInstance3D.new()
 	var floor_mesh = BoxMesh.new()
-	floor_mesh.size = Vector3(HALLWAY_WIDTH, 0.1, HALLWAY_LENGTH)
+	floor_mesh.size = Vector3(HALLWAY_WIDTH, 0.2, HALLWAY_LENGTH)
 	floor.mesh = floor_mesh
-	floor.position = Vector3(0, 0.05, HALLWAY_LENGTH / 2.0)
+	floor.position = Vector3(0, 0.1, HALLWAY_LENGTH/2.0)
 
 	var floor_mat = StandardMaterial3D.new()
-	floor_mat.albedo_color = Color(0.4, 0.4, 0.4)
+	if is_parent:
+		floor_mat.albedo_color = Color(0.5, 0.4, 0.2)  # Brown for parent
+	else:
+		floor_mat.albedo_color = Color(0.3, 0.3, 0.4)  # Dark blue for subdirs
 	floor.set_surface_override_material(0, floor_mat)
-
 	hallway.add_child(floor)
 
-	# Add label at the far end of the hallway
+	# Create ceiling for better enclosure feeling
+	var ceiling = MeshInstance3D.new()
+	var ceiling_mesh = BoxMesh.new()
+	ceiling_mesh.size = Vector3(HALLWAY_WIDTH, 0.2, HALLWAY_LENGTH)
+	ceiling.mesh = ceiling_mesh
+	ceiling.position = Vector3(0, HALLWAY_HEIGHT - 0.1, HALLWAY_LENGTH/2.0)
+
+	var ceiling_mat = StandardMaterial3D.new()
+	if is_parent:
+		ceiling_mat.albedo_color = Color(0.6, 0.5, 0.3, 0.8)
+	else:
+		ceiling_mat.albedo_color = Color(0.4, 0.4, 0.5, 0.8)
+	ceiling_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	ceiling.set_surface_override_material(0, ceiling_mat)
+	hallway.add_child(ceiling)
+
+	# Add label at entrance
 	var label = Label3D.new()
 	if is_parent:
-		label.text = "← " + subdir_name  # Back arrow for parent
+		label.text = "⬅ BACK (.."  + ")"
 	else:
-		label.text = "→ " + subdir_name  # Forward arrow for subdirs
-	label.font_size = 16
-	label.position = Vector3(0, HALLWAY_HEIGHT / 2.0, HALLWAY_LENGTH)
+		label.text = subdir_name + " ➡"
+	label.font_size = 12
+	label.position = Vector3(0, HALLWAY_HEIGHT - 0.5, 0.5)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
+	label.outline_size = 4
 	hallway.add_child(label)
 
-	# Store directory info
+	# Store metadata
 	hallway.set_meta("directory_path", full_path)
 	hallway.set_meta("directory_name", subdir_name)
 	hallway.set_meta("is_parent", is_parent)
 
-	# Add Area3D for player detection (only at the far end of hallway)
-	var area = Area3D.new()
-	var collision_shape = CollisionShape3D.new()
+	# Add trigger zone at the END of the hallway
+	var trigger = Area3D.new()
+	trigger.name = "Trigger"
+	var trigger_shape = CollisionShape3D.new()
 	var shape = BoxShape3D.new()
-	# Smaller detection zone at the far end of the hallway
-	shape.size = Vector3(HALLWAY_WIDTH, HALLWAY_HEIGHT, 1.5)
-	collision_shape.shape = shape
-	# Position at the far end of the hallway
-	collision_shape.position = Vector3(0, HALLWAY_HEIGHT / 2.0, HALLWAY_LENGTH - 0.75)
-	area.add_child(collision_shape)
-	hallway.add_child(area)
+	shape.size = Vector3(HALLWAY_WIDTH - 0.5, HALLWAY_HEIGHT, 2.0)
+	trigger_shape.shape = shape
+	trigger_shape.position = Vector3(0, HALLWAY_HEIGHT/2.0, HALLWAY_LENGTH - 1.0)
+	trigger.add_child(trigger_shape)
+	hallway.add_child(trigger)
 
-	# Connect signal for player entering hallway
-	area.body_entered.connect(_on_hallway_entered.bind(full_path, is_parent))
+	# Connect transition signal
+	trigger.body_entered.connect(_on_hallway_entered.bind(full_path, is_parent))
 
 	return hallway
+
+
+func create_wall_mesh(length: float, height: float, thickness: float, is_parent: bool) -> MeshInstance3D:
+	"""Helper to create a wall mesh for hallways"""
+	var wall = MeshInstance3D.new()
+	var mesh = BoxMesh.new()
+	mesh.size = Vector3(thickness, height, length)
+	wall.mesh = mesh
+
+	var mat = StandardMaterial3D.new()
+	if is_parent:
+		mat.albedo_color = Color(0.7, 0.6, 0.3, 0.7)  # Gold/brown for parent
+	else:
+		mat.albedo_color = Color(0.4, 0.4, 0.6, 0.7)  # Blue for subdirs
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	wall.set_surface_override_material(0, mat)
+
+	return wall
 
 
 func _on_hallway_entered(body: Node3D, target_path: String, is_parent: bool):
@@ -450,7 +476,7 @@ func _transition_to_room(target_path: String, source_path: String, went_to_paren
 	var old_room = current_room
 
 	# Generate/load the new room
-	await _generate_room_async(target_path)
+	await _generate_room_async(target_path, false)
 
 	# Fully hide the old room now that new room is loaded
 	if old_room and old_room != current_room:
@@ -478,16 +504,23 @@ func _transition_to_room(target_path: String, source_path: String, went_to_paren
 					break
 
 		if entrance_hallway:
-			# Place player just inside the room from this hallway
-			var entrance_pos = current_room.global_position + entrance_hallway.position
-			# Offset into the room (opposite direction of hallway)
-			var offset_dir = -entrance_hallway.transform.basis.z * 3.0
-			player.global_position = entrance_pos + offset_dir + Vector3(0, 1.5, 0)
-			print("Spawned at hallway entrance: ", entrance_hallway.name)
+			# Place player at the entrance to this hallway, facing into the room
+			var hallway_pos = entrance_hallway.position
+			var hallway_angle = entrance_hallway.rotation.y
+
+			# Position player just inside the room from the hallway
+			# Offset backward along the hallway direction (into the room)
+			var offset = Vector3(cos(hallway_angle), 0, sin(hallway_angle)) * -2.0
+			player.global_position = current_room.global_position + hallway_pos + offset + Vector3(0, 1.5, 0)
+
+			# Optionally face the player into the room (away from hallway)
+			# player.rotation.y = hallway_angle + PI
+
+			print("Spawned at hallway: ", entrance_hallway.name, " at position: ", player.global_position)
 		else:
 			# Fallback: place near room center
 			player.global_position = current_room.global_position + Vector3(0, 2, 0)
-			print("Spawned at room center")
+			print("Spawned at room center (no entrance hallway found)")
 
 
 func enter_room(room: RoomNode, spawn_at_center: bool = false):
