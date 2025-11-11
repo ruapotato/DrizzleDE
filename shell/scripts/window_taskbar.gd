@@ -177,11 +177,12 @@ func teleport_to_window(window_id: int):
 
 	var optimal_distance = (window_diagonal / 2.0) / tan(fov_rad / 2.0) + 1.0
 
-	# Get window normal (direction it's facing)
-	var window_forward = -quad.global_transform.basis.z
+	# Get window backward direction (opposite of where it faces)
+	# This positions us on the side where we can see the front face
+	var window_backward = quad.global_transform.basis.z
 
-	# Position player in front of window
-	var target_pos = window_pos + window_forward * optimal_distance
+	# Position player in front of window (on the viewing side)
+	var target_pos = window_pos + window_backward * optimal_distance
 	target_pos.y = window_pos.y  # Keep at window height
 
 	# Teleport player
