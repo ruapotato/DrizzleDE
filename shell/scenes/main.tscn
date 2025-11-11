@@ -1,4 +1,4 @@
-[gd_scene load_steps=12 format=3 uid="uid://bkqwx8yjnm7cp"]
+[gd_scene load_steps=13 format=3 uid="uid://bkqwx8yjnm7cp"]
 
 [ext_resource type="Script" uid="uid://d3r5i1wqfj4ky" path="res://shell/scripts/player_controller.gd" id="1_player_controller"]
 [ext_resource type="Script" uid="uid://bcuyoile8ks05" path="res://shell/scripts/window_display.gd" id="2_window_display"]
@@ -7,6 +7,7 @@
 [ext_resource type="Script" uid="uid://3ov8uh2vq4j4" path="res://shell/building/scripts/building_system.gd" id="5_building_system"]
 [ext_resource type="PackedScene" path="res://shell/building/scenes/building_ui.tscn" id="6_building_ui"]
 [ext_resource type="Script" uid="uid://qbdac64bjiug" path="res://shell/filesystem/filesystem_generator.gd" id="7_filesystem"]
+[ext_resource type="Script" path="res://shell/scripts/window_taskbar.gd" id="8_taskbar"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_3f4o0"]
 sky_top_color = Color(0.305882, 0.756863, 0.996078, 1)
@@ -53,6 +54,7 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.7, 0)
 script = ExtResource("2_window_display")
 compositor_path = NodePath("../X11Compositor")
 camera_path = NodePath("../Player/Camera")
+filesystem_generator_path = NodePath("../FileSystemGenerator")
 
 [node name="WindowInteraction" type="Node3D" parent="."]
 script = ExtResource("3_window_interaction")
@@ -70,3 +72,10 @@ placement_range = 10.0
 
 [node name="BuildingUI" parent="." instance=ExtResource("6_building_ui")]
 building_system_path = NodePath("../BuildingSystem")
+
+[node name="WindowTaskbar" type="CanvasLayer" parent="."]
+script = ExtResource("8_taskbar")
+compositor_path = NodePath("../X11Compositor")
+filesystem_generator_path = NodePath("../FileSystemGenerator")
+window_display_path = NodePath("../WindowDisplay")
+player_path = NodePath("../Player")

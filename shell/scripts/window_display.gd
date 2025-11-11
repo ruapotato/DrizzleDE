@@ -4,6 +4,7 @@ extends Node3D
 
 @export var compositor_path: NodePath
 @export var camera_path: NodePath
+@export var filesystem_generator_path: NodePath
 @export var window_spacing := 1.5
 @export var update_rate := 60.0  # Updates per second
 @export var spawn_distance := 3.0  # Distance from player to spawn new windows
@@ -11,6 +12,7 @@ extends Node3D
 
 var compositor: Node
 var camera: Camera3D
+var filesystem_generator: Node
 var window_quads := {}  # Maps window_id -> MeshInstance3D
 var update_timer := 0.0
 var next_z_offset := 0.0  # Z offset for each window to prevent Z-fighting
@@ -30,12 +32,20 @@ func _ready():
 	else:
 		camera = get_viewport().get_camera_3d()
 
+	if filesystem_generator_path:
+		filesystem_generator = get_node(filesystem_generator_path)
+	else:
+		filesystem_generator = get_node_or_null("/root/Main/FileSystemGenerator")
+
 	if not compositor:
 		push_error("X11Compositor not found!")
 		return
 
 	if not camera:
 		push_warning("Camera not found - windows will spawn at origin")
+
+	if not filesystem_generator:
+		push_warning("FileSystemGenerator not found - room-based window tracking disabled")
 
 	print("WindowDisplay ready, connected to compositor: ", compositor.get_display_name())
 
@@ -60,6 +70,11 @@ func _process(delta):
 	for window_id in ids_to_remove:
 		remove_window_quad(window_id)
 
+	# Get current room for filtering
+	var current_room_path = ""
+	if filesystem_generator and filesystem_generator.current_room:
+		current_room_path = filesystem_generator.current_room.directory_path
+
 	# Create or update quads for each window
 	for window_id in window_ids:
 		var quad: MeshInstance3D
@@ -70,19 +85,23 @@ func _process(delta):
 			quad = create_window_quad_spatial(window_id)
 			window_quads[window_id] = quad
 
-		# Hide unmapped windows (they exist but are closed)
-		var is_mapped = compositor.is_window_mapped(window_id)
-		quad.visible = is_mapped
+		# Check if window belongs to current room (room-based filtering)
+		var window_room_path = quad.get_meta("room_path", "")
+		var in_current_room = (window_room_path == current_room_path or window_room_path == "")
 
-		# Disable collision for unmapped windows to prevent blocking raycasts
+		# Hide unmapped windows OR windows not in current room
+		var is_mapped = compositor.is_window_mapped(window_id)
+		quad.visible = is_mapped and in_current_room
+
+		# Disable collision for unmapped windows or windows not in current room
 		var static_body = quad.get_node_or_null("StaticBody3D")
 		if static_body:
-			# Disable collision when unmapped, enable when mapped
-			static_body.set_collision_layer_value(1, is_mapped)
-			static_body.set_collision_mask_value(1, is_mapped)
+			var should_collide = is_mapped and in_current_room
+			static_body.set_collision_layer_value(1, should_collide)
+			static_body.set_collision_mask_value(1, should_collide)
 
-		# Only update texture for mapped windows
-		if is_mapped:
+		# Only update texture for mapped windows in current room
+		if is_mapped and in_current_room:
 			update_window_texture(quad, window_id)
 
 func create_window_quad(window_id: int, index: int) -> MeshInstance3D:
@@ -211,7 +230,15 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
 	quad.set_meta("app_class", app_class)
 	static_body.set_meta("window_id", window_id)
 
+	# Store current room path for room-based filtering
+	if filesystem_generator and filesystem_generator.current_room:
+		quad.set_meta("room_path", filesystem_generator.current_room.directory_path)
+	else:
+		quad.set_meta("room_path", "")
+
 	# Position the quad with Z offset to prevent Z-fighting
+	# Ensure minimum Y height above floor (floor is at y=0, so minimum y=1.5)
+	spawn_pos.y = max(spawn_pos.y, 1.5)
 	quad.position = spawn_pos
 
 	# Orient the quad to face the camera
@@ -342,15 +369,19 @@ func get_spawn_position(window_id: int, app_class: String) -> Vector3:
 		if result:
 			# Hit something - spawn at hit point, offset slightly toward camera
 			var spawn_pos = result.position + result.normal * 0.1
+			# Ensure minimum Y height
+			spawn_pos.y = max(spawn_pos.y, 1.5)
 			print("  Spawning new window at raycast hit: ", spawn_pos)
 			return spawn_pos
 		else:
 			# No hit - spawn at fixed distance in look direction
 			var spawn_pos = from + forward * spawn_distance
+			# Ensure minimum Y height
+			spawn_pos.y = max(spawn_pos.y, 1.5)
 			print("  Spawning new window at fixed distance: ", spawn_pos)
 			return spawn_pos
 
-	# Fallback: spawn at origin
+	# Fallback: spawn at origin with proper height
 	return Vector3(0, 1.5, -1)
 
 func add_window_to_zone(window_id: int, app_class: String, position: Vector3):

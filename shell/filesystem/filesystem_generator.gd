@@ -487,10 +487,10 @@ func create_hallway(subdir_name: String, full_path: String, angle: float, room_r
 		label.text = "⬅ BACK (.."  + ")"
 	else:
 		label.text = subdir_name + " ➡"
-	label.font_size = 12
+	label.font_size = 48  # Much larger for better visibility
 	label.position = Vector3(0, HALLWAY_HEIGHT - 0.5, 0.5)
 	label.billboard = BaseMaterial3D.BILLBOARD_ENABLED
-	label.outline_size = 4
+	label.outline_size = 8  # Increased outline for larger text
 	hallway.add_child(label)
 
 	# Store metadata

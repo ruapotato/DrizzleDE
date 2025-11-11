@@ -5,7 +5,7 @@ extends CharacterBody3D
 
 @export var mouse_sensitivity := 0.002
 @export var walk_speed := 5.0
-@export var sprint_speed := 8.0
+@export var sprint_speed := 10.0  # 2x walk speed
 @export var jump_velocity := 4.5
 @export var gravity := 15.0
 
@@ -13,6 +13,7 @@ var camera: Camera3D
 var _mouse_captured := false
 var inventory_menu: Node = null
 var building_system: Node = null
+var window_interaction: Node = null
 
 func _ready():
 	# Find camera child
@@ -28,6 +29,9 @@ func _ready():
 
 	# Find building system
 	building_system = get_node_or_null("/root/Main/BuildingSystem")
+
+	# Find window interaction
+	window_interaction = get_node_or_null("/root/Main/WindowInteraction")
 
 func _input(event):
 	# Don't process camera input when inventory menu is open
@@ -89,8 +93,9 @@ func _physics_process(delta):
 	if not is_on_floor():
 		velocity.y -= gravity * delta
 
-	# Handle jump
-	if Input.is_action_just_pressed("jump") and is_on_floor():
+	# Handle jump (but not when a window is selected)
+	var window_selected = window_interaction and window_interaction.get("selected_window_id") != -1
+	if Input.is_action_just_pressed("jump") and is_on_floor() and not window_selected:
 		velocity.y = jump_velocity
 
 	# Get input direction
