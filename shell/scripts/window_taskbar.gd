@@ -190,7 +190,8 @@ func teleport_to_window(window_id: int):
 
 	# Face player toward window - rotate player body
 	var look_direction = (window_pos - target_pos).normalized()
-	player.rotation.y = atan2(look_direction.x, look_direction.z)
+	# Add PI to flip 180 degrees so we face the window, not away from it
+	player.rotation.y = atan2(look_direction.x, look_direction.z) + PI
 
 	# Reset camera pitch to look straight ahead (not up or down)
 	if camera:
