@@ -8,16 +8,22 @@ const FileCube = preload("res://shell/filesystem/file_cube.gd")
 const RoomNode = preload("res://shell/filesystem/room_node.gd")
 
 ## Room dimensions
-const ROOM_BASE_SIZE = 10.0  # Base room size in meters
+const ROOM_BASE_SIZE = 20.0  # Base room size in meters (increased for hallway access)
 const HALLWAY_WIDTH = 3.0
 const HALLWAY_HEIGHT = 3.0
-const HALLWAY_LENGTH = 5.0  # How far hallways extend from the room
+const HALLWAY_LENGTH = 10.0  # How far hallways extend from the room (increased for transition zone)
 const FILE_CUBE_SIZE = 0.5
 const FILE_SPACING = 1.0
 const MAX_FILES_DISPLAY = 100  # Limit files displayed to prevent performance issues
 
 ## Currently active room
 var current_room: RoomNode = null
+
+## Hallway the player is currently in (null if in a room)
+var current_hallway: Node3D = null
+
+## Source room when in a hallway (to keep loaded while traversing)
+var hallway_source_room: RoomNode = null
 
 ## Cache of generated rooms {path: RoomNode}
 var room_cache: Dictionary = {}
@@ -55,6 +61,26 @@ func _generate_room_async(dir_path: String, spawn_at_center: bool = false):
 		room_cache[dir_path] = room
 		add_child(room)
 		enter_room(room, spawn_at_center)
+
+
+func _generate_room_for_transition(dir_path: String) -> RoomNode:
+	"""Generate a room for transition WITHOUT entering it (for smooth hallway transitions)"""
+	# Check cache first
+	if room_cache.has(dir_path):
+		return room_cache[dir_path]
+
+	print("Generating room for transition: ", dir_path)
+
+	# Generate the room
+	var room = await _create_room_async(dir_path)
+
+	if room:
+		# Cache but don't enter
+		room_cache[dir_path] = room
+		add_child(room)
+		room.visible = false  # Start hidden
+
+	return room
 
 
 func _create_room_async(dir_path: String) -> RoomNode:
@@ -215,6 +241,24 @@ func calculate_room_size(num_items: int) -> Vector3:
 	return Vector3(width, height, depth)
 
 
+func calculate_room_radius_for_hallways(num_hallways: int) -> float:
+	"""Calculate minimum room radius to prevent hallway overlap"""
+	if num_hallways == 0:
+		return ROOM_BASE_SIZE / 2.0
+
+	# To prevent hallways from overlapping:
+	# Arc length between hallways = radius * angle_between
+	# angle_between = 2*PI / num_hallways
+	# For no overlap: arc_length >= HALLWAY_WIDTH
+	# radius * (2*PI / num_hallways) >= HALLWAY_WIDTH
+	# radius >= HALLWAY_WIDTH * num_hallways / (2*PI)
+
+	var min_radius = (HALLWAY_WIDTH * num_hallways) / TAU
+
+	# Add some padding for visual spacing (1.5x the minimum)
+	return max(ROOM_BASE_SIZE / 2.0, min_radius * 1.5)
+
+
 func generate_room_geometry(room: RoomNode, size: Vector3):
 	# Create floor
 	var floor_mesh = BoxMesh.new()
@@ -334,42 +378,59 @@ func create_hallways(room: RoomNode, subdirs: Array, dir_path: String):
 	if total_hallways == 0:
 		return  # No hallways to create
 
+	# Calculate proper room radius to prevent hallway overlap
+	var min_radius_for_hallways = calculate_room_radius_for_hallways(total_hallways)
+
+	# Ensure room is large enough for hallways
+	var current_radius = room.room_size.x / 2.0
+	if current_radius < min_radius_for_hallways:
+		print("  Expanding room from radius ", current_radius, " to ", min_radius_for_hallways, " for ", total_hallways, " hallways")
+		room.room_size.x = min_radius_for_hallways * 2.0
+		room.room_size.z = min_radius_for_hallways * 2.0
+		# Regenerate floor with new size
+		for child in room.get_children():
+			if child.name == "Floor":
+				child.queue_free()
+		generate_room_geometry(room, room.room_size)
+
+	var radius = min_radius_for_hallways
 	var angle_step = TAU / total_hallways
-	var radius = room.room_size.x / 2.0
-	var hallway_index = 0
 
-	# Create parent directory hallway first (at the back, angle PI)
+	# Build a list of all hallways to create with their angles
+	var hallways_to_create = []
+
+	# Add parent hallway at PI (behind player spawn)
 	if not is_root:
-		var angle = PI  # Behind the player spawn
-		var hallway = create_hallway("..", parent_path, angle, radius, true)
+		hallways_to_create.append({"name": "..", "path": parent_path, "is_parent": true})
+
+	# Add subdirectory hallways
+	for subdir in subdirs:
+		hallways_to_create.append({"name": subdir, "path": dir_path.path_join(subdir), "is_parent": false})
+
+	# Create all hallways with evenly distributed angles
+	for i in range(hallways_to_create.size()):
+		var hw_data = hallways_to_create[i]
+		var angle = i * angle_step
+		var hallway = create_hallway(hw_data["name"], hw_data["path"], angle, radius, hw_data["is_parent"], dir_path)
 		room.add_child(hallway)
 		room.hallways.append(hallway)
-		hallway_index += 1
-
-	# Create subdirectory hallways around the perimeter
-	for i in range(subdirs.size()):
-		var angle = hallway_index * angle_step
-		var hallway = create_hallway(subdirs[i], dir_path.path_join(subdirs[i]), angle, radius, false)
-		room.add_child(hallway)
-		room.hallways.append(hallway)
-		hallway_index += 1
 
 
-func create_hallway(subdir_name: String, full_path: String, angle: float, room_radius: float, is_parent: bool = false) -> Node3D:
-	"""Create a hallway that extends radially inward toward the room center"""
+func create_hallway(subdir_name: String, full_path: String, angle: float, room_radius: float, is_parent: bool, owner_dir_path: String) -> Node3D:
+	"""Create a hallway that extends radially outward from room edge toward next room (clock-like)"""
 	var hallway = Node3D.new()
 	hallway.name = "Hallway_" + subdir_name
 
-	# Position OUTSIDE the room perimeter
-	# The hallway extends inward, so position it one hallway-length away from edge
-	var distance_from_center = room_radius + HALLWAY_LENGTH
-	var x = cos(angle) * distance_from_center
-	var z = sin(angle) * distance_from_center
+	# Position AT the room edge
+	# Hallways extend outward from the perimeter like clock hands
+	var x = cos(angle) * room_radius
+	var z = sin(angle) * room_radius
 	hallway.position = Vector3(x, 0, z)
 
-	# Rotate to point INWARD toward room center
-	# The corridor mesh extends in +Z, so we rotate +Z to point toward center
-	hallway.rotation.y = angle + PI
+	# CRITICAL FIX: Proper rotation calculation
+	# In Godot, to point in direction (dx, 0, dz), use rotation.y = atan2(dx, dz)
+	# Direction outward is (cos(angle), 0, sin(angle))
+	hallway.rotation.y = atan2(cos(angle), sin(angle))
 
 	# Create corridor walls (left and right)
 	var left_wall = create_wall_mesh(HALLWAY_LENGTH, HALLWAY_HEIGHT, 0.2, is_parent)
@@ -380,12 +441,12 @@ func create_hallway(subdir_name: String, full_path: String, angle: float, room_r
 	right_wall.position = Vector3(HALLWAY_WIDTH/2.0, HALLWAY_HEIGHT/2.0, HALLWAY_LENGTH/2.0)
 	hallway.add_child(right_wall)
 
-	# Create floor
+	# Create floor with collision
 	var floor = MeshInstance3D.new()
 	var floor_mesh = BoxMesh.new()
 	floor_mesh.size = Vector3(HALLWAY_WIDTH, 0.2, HALLWAY_LENGTH)
 	floor.mesh = floor_mesh
-	floor.position = Vector3(0, 0.1, HALLWAY_LENGTH/2.0)
+	floor.position = Vector3(0, -0.1, HALLWAY_LENGTH/2.0)
 
 	var floor_mat = StandardMaterial3D.new()
 	if is_parent:
@@ -394,6 +455,15 @@ func create_hallway(subdir_name: String, full_path: String, angle: float, room_r
 		floor_mat.albedo_color = Color(0.3, 0.3, 0.4)  # Dark blue for subdirs
 	floor.set_surface_override_material(0, floor_mat)
 	hallway.add_child(floor)
+
+	# Add collision to floor so player can walk on it
+	var floor_collision_body = StaticBody3D.new()
+	var floor_collision_shape = CollisionShape3D.new()
+	var floor_shape = BoxShape3D.new()
+	floor_shape.size = floor_mesh.size
+	floor_collision_shape.shape = floor_shape
+	floor_collision_body.add_child(floor_collision_shape)
+	floor.add_child(floor_collision_body)
 
 	# Create ceiling for better enclosure feeling
 	var ceiling = MeshInstance3D.new()
@@ -428,21 +498,24 @@ func create_hallway(subdir_name: String, full_path: String, angle: float, room_r
 	hallway.set_meta("directory_name", subdir_name)
 	hallway.set_meta("is_parent", is_parent)
 
-	# Add trigger zone at the INNER END (room entrance)
-	# Hallway points inward (+Z toward center), so inner end is at +Z
-	var trigger = Area3D.new()
-	trigger.name = "Trigger"
-	var trigger_shape = CollisionShape3D.new()
-	var shape = BoxShape3D.new()
-	shape.size = Vector3(HALLWAY_WIDTH - 0.5, HALLWAY_HEIGHT, 2.0)
-	trigger_shape.shape = shape
-	# Position at inner end (positive Z, near room entrance)
-	trigger_shape.position = Vector3(0, HALLWAY_HEIGHT/2.0, HALLWAY_LENGTH - 1.0)
-	trigger.add_child(trigger_shape)
-	hallway.add_child(trigger)
+	# Store which room this hallway belongs to (for trigger filtering)
+	hallway.set_meta("owner_room_path", owner_dir_path)
 
-	# Connect transition signal
-	trigger.body_entered.connect(_on_hallway_entered.bind(full_path, is_parent))
+	# Add full-hallway Area3D trigger to detect when player is in the hallway
+	var hallway_trigger = Area3D.new()
+	hallway_trigger.name = "HallwayTrigger"
+	hallway_trigger.monitoring = true
+	var hallway_shape = CollisionShape3D.new()
+	var h_shape = BoxShape3D.new()
+	h_shape.size = Vector3(HALLWAY_WIDTH - 0.5, HALLWAY_HEIGHT - 0.5, HALLWAY_LENGTH)
+	hallway_shape.shape = h_shape
+	hallway_shape.position = Vector3(0, HALLWAY_HEIGHT/2.0, HALLWAY_LENGTH/2.0)
+	hallway_trigger.add_child(hallway_shape)
+	hallway.add_child(hallway_trigger)
+
+	# Connect enter/exit signals
+	hallway_trigger.body_entered.connect(_on_hallway_entered.bind(hallway, full_path, owner_dir_path))
+	hallway_trigger.body_exited.connect(_on_hallway_exited.bind(hallway, full_path, owner_dir_path))
 
 	return hallway
 
@@ -465,26 +538,168 @@ func create_wall_mesh(length: float, height: float, thickness: float, is_parent:
 	return wall
 
 
-func _on_hallway_entered(body: Node3D, target_path: String, is_parent: bool):
+func _on_hallway_entered(body: Node3D, hallway: Node3D, destination_path: String, source_path: String):
+	"""Called when player enters a hallway - load both rooms"""
 	if body.name == "Player":
-		# Store the source directory before transitioning
-		var source_dir = current_room.directory_path if current_room else ""
-		# Player entered a hallway, transition to new room
-		print("Entering directory: ", target_path)
-		_transition_to_room(target_path, source_dir, is_parent)
+		print("Entered hallway: ", hallway.name)
+		print("  Source room: ", source_path)
+		print("  Destination: ", destination_path)
+
+		# Track that we're in this hallway
+		current_hallway = hallway
+
+		# Keep source room loaded
+		if current_room and current_room.directory_path == source_path:
+			hallway_source_room = current_room
+			print("  Keeping source room loaded: ", source_path)
+
+		# Load and position the destination room
+		var is_parent = hallway.get_meta("is_parent", false)
+		_handle_hallway_transition(destination_path, source_path, is_parent)
+
+
+func _handle_hallway_transition(destination_path: String, source_path: String, is_parent: bool):
+	"""Async handler to load destination room when entering hallway"""
+	var source_room = room_cache.get(source_path, null)
+	var destination_room = await _generate_room_for_transition(destination_path)
+
+	if destination_room and source_room:
+		# Position the destination room
+		_position_connected_hallways(source_room, destination_room, source_path, is_parent)
+
+		# Make destination room current and show both rooms
+		current_room = destination_room
+		destination_room.visible = true
+		_enable_room_triggers(destination_room)
+
+		# Keep source room visible
+		if hallway_source_room:
+			hallway_source_room.visible = true
+
+		print("  Both rooms loaded:")
+		print("    Current (destination): ", destination_room.directory_path)
+		print("    Source: ", hallway_source_room.directory_path if hallway_source_room else "none")
+
+
+func _on_hallway_exited(body: Node3D, hallway: Node3D, destination_path: String, source_path: String):
+	"""Called when player exits a hallway - determine which room to keep loaded"""
+	if body.name == "Player" and current_hallway == hallway:
+		print("Exited hallway: ", hallway.name)
+
+		# Clear hallway tracking
+		current_hallway = null
+
+		# Determine which end of the hallway the player exited from
+		# Hallway extends in +Z direction in local space:
+		#   Z = 0: Source room end
+		#   Z = HALLWAY_LENGTH: Destination room end
+		var player = body
+		var source_room = hallway_source_room
+		var dest_room = current_room
+
+		if source_room and dest_room:
+			# Get player position in hallway local space
+			var player_local = hallway.global_transform.affine_inverse() * player.global_position
+			var z_position = player_local.z
+
+			print("  Player Z in hallway: ", z_position, " (0=source, ", HALLWAY_LENGTH, "=destination)")
+
+			if z_position < HALLWAY_LENGTH / 2.0:
+				# Player exited from source end (back into source room)
+				print("  Exited from source end - keeping source, unloading destination")
+				current_room = source_room
+				dest_room.visible = false
+				_disable_room_triggers(dest_room)
+			else:
+				# Player exited from destination end (forward into destination room)
+				print("  Exited from destination end - keeping destination, unloading source")
+				# current_room is already dest_room
+				source_room.visible = false
+				_disable_room_triggers(source_room)
+
+		hallway_source_room = null
+		print("  Only current room loaded: ", current_room.directory_path if current_room else "none")
+
+
+func _position_connected_hallways(old_room: RoomNode, new_room: RoomNode, old_room_path: String, is_parent: bool):
+	"""Position and rotate new room so hallways connect perfectly (both position and rotation)"""
+
+	# Only position the room if it hasn't been positioned yet (check if at origin)
+	if new_room.global_position.length() > 0.1:
+		print("Room already positioned at: ", new_room.global_position)
+		return
+
+	# Find the exit hallway in old room (the one leading to new room)
+	var exit_hallway = null
+	for hw in old_room.hallways:
+		if hw.get_meta("directory_path", "") == new_room.directory_path:
+			exit_hallway = hw
+			break
+
+	# Find the entrance hallway in new room (the one leading back to old room)
+	var entrance_hallway = null
+	if is_parent:
+		# Going up to parent - find hallway back to child (old room)
+		var old_room_name = old_room_path.get_file()
+		for hw in new_room.hallways:
+			if hw.get_meta("directory_name", "") == old_room_name and not hw.get_meta("is_parent", false):
+				entrance_hallway = hw
+				break
+	else:
+		# Going down to child - find parent (..) hallway
+		for hw in new_room.hallways:
+			if hw.get_meta("is_parent", false):
+				entrance_hallway = hw
+				break
+
+	if not exit_hallway or not entrance_hallway:
+		print("WARNING: Could not find hallway pair")
+		return
+
+	# CRITICAL: Rotate the new room so hallways point in OPPOSITE directions
+	# Exit hallway points at world angle: old_room.rotation.y + exit_hallway.rotation.y
+	# Entrance hallway should point at: exit_world_angle + PI (180° opposite)
+	# Entrance hallway world angle: new_room.rotation.y + entrance_hallway.rotation.y
+	# Therefore: new_room.rotation.y = old_room.rotation.y + exit_hallway.rotation.y + PI - entrance_hallway.rotation.y
+
+	var exit_world_angle = old_room.rotation.y + exit_hallway.rotation.y
+	var required_entrance_world_angle = exit_world_angle + PI
+	new_room.rotation.y = required_entrance_world_angle - entrance_hallway.rotation.y
+
+	print("Rotating new room:")
+	print("  Exit hallway world angle: ", rad_to_deg(exit_world_angle), "°")
+	print("  Entrance hallway should point at: ", rad_to_deg(required_entrance_world_angle), "°")
+	print("  New room rotation: ", rad_to_deg(new_room.rotation.y), "°")
+
+	# Now calculate positions with the rotation applied
+	# We need to recalculate directions after rotation
+	var exit_direction = Vector3(sin(exit_world_angle), 0, cos(exit_world_angle))
+	var exit_end_world = old_room.global_position + exit_hallway.position.rotated(Vector3.UP, old_room.rotation.y) + exit_direction * HALLWAY_LENGTH
+
+	# Entrance hallway direction after room rotation
+	var entrance_world_angle = new_room.rotation.y + entrance_hallway.rotation.y
+	var entrance_direction = Vector3(sin(entrance_world_angle), 0, cos(entrance_world_angle))
+	var entrance_end_local_rotated = entrance_hallway.position.rotated(Vector3.UP, new_room.rotation.y) + entrance_direction * HALLWAY_LENGTH
+
+	# Position new room so hallways meet end-to-end
+	new_room.global_position = exit_end_world - entrance_end_local_rotated
+
+	print("Positioned room: ", new_room.directory_path, " at ", new_room.global_position)
+	print("  Hallways should now be perfectly aligned (180° opposed)")
 
 
 func _transition_to_room(target_path: String, source_path: String, went_to_parent: bool):
-	"""Transition to a new room, placing player at the entrance"""
+	"""Transition to a new room, placing player at the entrance (for initial spawn or fallback)"""
 	# Unload old room by hiding it (keep it cached though)
 	var old_room = current_room
 
 	# Generate/load the new room
 	await _generate_room_async(target_path, false)
 
-	# Fully hide the old room now that new room is loaded
+	# Fully hide the old room now that new room is loaded, and disable its triggers
 	if old_room and old_room != current_room:
 		old_room.visible = false
+		_disable_room_triggers(old_room)
 
 	# Position player at appropriate entrance
 	var player = get_tree().get_first_node_in_group("player")
@@ -508,18 +723,19 @@ func _transition_to_room(target_path: String, source_path: String, went_to_paren
 					break
 
 		if entrance_hallway:
-			# Place player at the outer end of the entrance hallway
+			# Place player at the far end of the entrance hallway (entering from outside)
 			var hallway_pos = entrance_hallway.position
 			var hallway_angle = entrance_hallway.rotation.y
 
-			# Hallways point inward (+Z toward room center)
-			# Place player at outer end (Z=0 in hallway local space)
-			var offset = Vector3(0, 0, 0.5)  # Just inside the outer entrance
+			# Hallways now point OUTWARD from room center
+			# Place player at far end (HALLWAY_LENGTH in +Z direction)
+			# Then they walk back toward the room center
+			var offset = Vector3(0, 0, HALLWAY_LENGTH - 0.5)  # At far end of hallway
 			var rotated_offset = offset.rotated(Vector3.UP, hallway_angle)
 			player.global_position = current_room.global_position + hallway_pos + rotated_offset + Vector3(0, 1.5, 0)
 
-			# Optionally face the player into the room (away from hallway)
-			# player.rotation.y = hallway_angle + PI
+			# Face player toward the room (opposite of hallway direction)
+			player.rotation.y = hallway_angle + PI
 
 			print("Spawned at hallway: ", entrance_hallway.name, " at position: ", player.global_position)
 		else:
@@ -528,14 +744,32 @@ func _transition_to_room(target_path: String, source_path: String, went_to_paren
 			print("Spawned at room center (no entrance hallway found)")
 
 
+func _disable_room_triggers(room: RoomNode):
+	"""Disable all hallway triggers in a room to prevent unwanted transitions"""
+	for hallway in room.hallways:
+		for child in hallway.get_children():
+			if child is Area3D:
+				child.monitoring = false
+
+
+func _enable_room_triggers(room: RoomNode):
+	"""Enable all hallway triggers in a room"""
+	for hallway in room.hallways:
+		for child in hallway.get_children():
+			if child is Area3D:
+				child.monitoring = true
+
+
 func enter_room(room: RoomNode, spawn_at_center: bool = false):
-	# Hide current room
+	# Hide current room and disable its triggers
 	if current_room and current_room != room:
 		current_room.visible = false
+		_disable_room_triggers(current_room)
 
-	# Show new room
+	# Show new room and enable its triggers
 	current_room = room
 	current_room.visible = true
+	_enable_room_triggers(current_room)
 
 	# Only move player to center on initial spawn
 	if spawn_at_center:
