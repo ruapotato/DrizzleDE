@@ -481,8 +481,15 @@ func _input(event):
 					# Launch application
 					launch_desktop_file(file_path)
 				else:
-					# Open with default application
-					OS.shell_open(file_path)
+					# Open with default application in Xvfb display
+					if compositor and OS.has_feature("linux"):
+						var display = compositor.get_display_name()
+						print("Opening file with xdg-open on display: ", display)
+						# Use env to set DISPLAY for xdg-open process
+						OS.create_process("env", ["DISPLAY=" + display, "xdg-open", file_path])
+					else:
+						# Fallback to default display
+						OS.shell_open(file_path)
 
 				pulse_click()
 				get_viewport().set_input_as_handled()

@@ -27,8 +27,16 @@ func open_file():
 		if compositor:
 			launch_desktop_file(file_path, compositor.get_display_name())
 	elif OS.has_feature("linux"):
-		# Use xdg-open to open file
-		OS.execute("xdg-open", [file_path])
+		# Use xdg-open to open file in Xvfb display
+		var compositor = get_tree().get_first_node_in_group("compositor")
+		if compositor:
+			var display = compositor.get_display_name()
+			print("Opening file with xdg-open on display: ", display)
+			# Use env to set DISPLAY for xdg-open process
+			OS.create_process("env", ["DISPLAY=" + display, "xdg-open", file_path])
+		else:
+			# Fallback to default display
+			OS.execute("xdg-open", [file_path])
 	else:
 		# Try to open with default application
 		OS.shell_open(file_path)
