@@ -187,11 +187,17 @@ func teleport_to_window(window_id: int):
 	# Teleport player
 	player.global_position = target_pos
 
-	# Face player toward window
+	# Face player toward window - rotate player body
 	var look_direction = (window_pos - target_pos).normalized()
 	player.rotation.y = atan2(look_direction.x, look_direction.z)
 
+	# Reset camera pitch to look straight ahead (not up or down)
+	if camera:
+		camera.rotation.x = 0.0
+
 	print("Teleported to window ", window_id, " at ", target_pos)
+	print("  Player facing: ", rad_to_deg(player.rotation.y), "°")
+	print("  Camera pitch reset to 0°")
 
 	# Auto-select the window
 	var window_interaction = get_node_or_null("/root/Main/WindowInteraction")

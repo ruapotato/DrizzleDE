@@ -260,9 +260,12 @@ func calculate_room_radius_for_hallways(num_hallways: int) -> float:
 
 
 func generate_room_geometry(room: RoomNode, size: Vector3):
-	# Create floor
-	var floor_mesh = BoxMesh.new()
-	floor_mesh.size = Vector3(size.x, 0.2, size.z)
+	# Create circular floor using CylinderMesh
+	var floor_mesh = CylinderMesh.new()
+	var radius = max(size.x, size.z) / 2.0  # Use the larger dimension for radius
+	floor_mesh.top_radius = radius
+	floor_mesh.bottom_radius = radius
+	floor_mesh.height = 0.2
 
 	var floor = MeshInstance3D.new()
 	floor.mesh = floor_mesh
@@ -276,11 +279,12 @@ func generate_room_geometry(room: RoomNode, size: Vector3):
 
 	room.add_child(floor)
 
-	# Create collision for floor
+	# Create collision for floor (use cylinder collision)
 	var static_body = StaticBody3D.new()
 	var collision_shape = CollisionShape3D.new()
-	var shape = BoxShape3D.new()
-	shape.size = floor_mesh.size
+	var shape = CylinderShape3D.new()
+	shape.radius = radius
+	shape.height = 0.2
 	collision_shape.shape = shape
 	static_body.add_child(collision_shape)
 	floor.add_child(static_body)
