@@ -53,8 +53,11 @@ func _ready():
 
 func _input(event):
 	# Don't open menu if a window is selected
-	if window_interaction and window_interaction.current_state == window_interaction.WindowState.SELECTED:
-		return
+	# Check if a window is currently selected by looking at selected_window_id
+	if window_interaction:
+		var selected_window_id = window_interaction.get("selected_window_id")
+		if selected_window_id != null and selected_window_id != -1:
+			return
 
 	# Check if search box has focus - if so, don't toggle menu on 'I' key
 	var search_has_focus = search_box and search_box.has_focus()
