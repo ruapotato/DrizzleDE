@@ -111,12 +111,13 @@ func _process(delta):
 			update_window_texture(quad, window_id)
 
 			# Billboard behavior: Make idle windows face the camera
-			# Skip billboarding for selected windows (interaction system handles them)
 			# Skip billboarding for popup windows (they follow parent orientation)
+			# Keep billboarding selected window until we're in 2D mode (so it stays aligned during camera animation)
 			var parent_id = compositor.get_parent_window_id(window_id)
 			var is_selected = (window_id == selected_window_id)
+			var in_2d_mode = window_interaction and window_interaction.get("in_2d_mode")
 
-			if not is_selected and parent_id == -1 and camera:
+			if parent_id == -1 and camera and not (is_selected and in_2d_mode):
 				# Billboard: make window face camera (Y rotation only)
 				var to_camera = camera.global_position - quad.global_position
 				var look_angle = atan2(to_camera.x, to_camera.z)

@@ -7,7 +7,7 @@
 [ext_resource type="Script" uid="uid://3ov8uh2vq4j4" path="res://shell/building/scripts/building_system.gd" id="5_building_system"]
 [ext_resource type="PackedScene" path="res://shell/building/scenes/building_ui.tscn" id="6_building_ui"]
 [ext_resource type="Script" uid="uid://qbdac64bjiug" path="res://shell/filesystem/filesystem_generator.gd" id="7_filesystem"]
-[ext_resource type="Script" path="res://shell/scripts/window_taskbar.gd" id="8_taskbar"]
+[ext_resource type="Script" uid="uid://yhjlxittj1u6" path="res://shell/scripts/window_taskbar.gd" id="8_taskbar"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_3f4o0"]
 sky_top_color = Color(0.305882, 0.756863, 0.996078, 1)

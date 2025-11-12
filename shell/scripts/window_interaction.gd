@@ -513,10 +513,14 @@ func _input(event):
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		# Only act on PRESS, not release
 		if not event.pressed:
-			# Forward release to selected window if any
+			# Forward release to hovered window if in 2D mode, otherwise selected window
 			if current_state == WindowState.SELECTED:
+				var target_window_id = selected_window_id
+				if in_2d_mode and has_meta("hovered_2d_window"):
+					target_window_id = get_meta("hovered_2d_window")
+
 				compositor.send_mouse_button(
-					selected_window_id,
+					target_window_id,
 					event.button_index,
 					false,
 					int(window_mouse_pos.x),
@@ -574,10 +578,14 @@ func _input(event):
 			return
 
 		elif current_state == WindowState.SELECTED:
-			# Click on selected window - forward to X11
-			print("Forwarding click to window ", selected_window_id, " at (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
+			# In 2D mode, click on whichever window is hovered (parent or popup)
+			var target_window_id = selected_window_id
+			if in_2d_mode and has_meta("hovered_2d_window"):
+				target_window_id = get_meta("hovered_2d_window")
+
+			print("Forwarding click to window ", target_window_id, " at (", int(window_mouse_pos.x), ", ", int(window_mouse_pos.y), ")")
 			compositor.send_mouse_button(
-				selected_window_id,
+				target_window_id,
 				event.button_index,
 				true,  # pressed
 				int(window_mouse_pos.x),
@@ -594,8 +602,12 @@ func _input(event):
 	# Forward other mouse buttons
 	if event is InputEventMouseButton:
 		if current_state == WindowState.SELECTED:
+			var target_window_id = selected_window_id
+			if in_2d_mode and has_meta("hovered_2d_window"):
+				target_window_id = get_meta("hovered_2d_window")
+
 			compositor.send_mouse_button(
-				selected_window_id,
+				target_window_id,
 				event.button_index,
 				event.pressed,
 				int(window_mouse_pos.x),
@@ -745,6 +757,33 @@ func update_2d_mouse_position():
 
 	var result = space_state.intersect_ray(query)
 
+	# Debug: Check all visible windows and their positions relative to camera
+	var window_ids = compositor.get_window_ids()
+	var popup_count = 0
+	for wid in window_ids:
+		var parent_id = compositor.get_parent_window_id(wid)
+		if parent_id == selected_window_id and compositor.is_window_mapped(wid):
+			popup_count += 1
+			# This is a popup of the selected window
+			var window_display = get_node_or_null("/root/Main/WindowDisplay")
+			if window_display and wid in window_display.window_quads:
+				var popup_quad = window_display.window_quads[wid]
+				var dist_to_camera = camera.global_position.distance_to(popup_quad.global_position)
+				var direction = (popup_quad.global_position - camera.global_position).normalized()
+				var forward = -camera.global_transform.basis.z
+				var dot = direction.dot(forward)
+				var static_body = popup_quad.get_node_or_null("StaticBody3D")
+				var has_collision = false
+				if static_body:
+					has_collision = static_body.get_collision_layer_value(1)
+				print("  DEBUG: Popup window ", wid, " visible=", popup_quad.visible,
+					  " collision=", has_collision,
+					  " distance=", dist_to_camera, " in_front=", dot > 0,
+					  " pos=", popup_quad.global_position)
+
+	if popup_count > 0:
+		print("  DEBUG: ", popup_count, " popup(s) exist for selected window ", selected_window_id)
+
 	if result and result.collider is StaticBody3D:
 		var collider = result.collider
 
@@ -753,12 +792,24 @@ func update_2d_mouse_position():
 			handle_exit_button_hit(collider)
 			return
 
-		# Check if we hit the selected window
+		# Check if we hit any window (including popups)
 		if collider.has_meta("window_id"):
 			var window_id = collider.get_meta("window_id")
-			if window_id == selected_window_id and selected_window_quad:
+			var parent_id = compositor.get_parent_window_id(window_id)
+			var window_title = compositor.get_window_title(window_id)
+
+			# Debug output
+			if parent_id != -1:
+				print("  DEBUG 2D: Hit popup window ", window_id, " (parent:", parent_id, ") title:", window_title)
+			else:
+				print("  DEBUG 2D: Hit parent window ", window_id, " title:", window_title)
+
+			# Find the quad for this window
+			var hit_quad = collider.get_parent() as MeshInstance3D
+
+			if hit_quad:
 				# Calculate window-local coordinates
-				var local_pos = selected_window_quad.global_transform.affine_inverse() * result.position
+				var local_pos = hit_quad.global_transform.affine_inverse() * result.position
 				var window_size = compositor.get_window_size(window_id)
 
 				if window_size.x > 0 and window_size.y > 0:
@@ -769,17 +820,26 @@ func update_2d_mouse_position():
 						clamp(tex_y, 0, window_size.y - 1)
 					)
 
-					# Send mouse motion to X11
+					# Send mouse motion to X11 - works for both parent and popup windows
 					compositor.send_mouse_motion(
 						window_id,
 						int(window_mouse_pos.x),
 						int(window_mouse_pos.y)
 					)
+
+					# Store which window we're currently hovering for click handling
+					set_meta("hovered_2d_window", window_id)
 			else:
-				# Not hitting the selected window, clear exit button hover
+				# Not hitting a window, clear hover
+				remove_meta("hovered_2d_window")
 				clear_exit_button_hover()
+		else:
+			# Not hitting a window, clear hover
+			remove_meta("hovered_2d_window")
+			clear_exit_button_hover()
 	else:
 		# Not hitting anything, clear exit button hover
+		remove_meta("hovered_2d_window")
 		clear_exit_button_hover()
 
 ## Visual feedback
