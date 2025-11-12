@@ -513,3 +513,92 @@ func update_zone_center(app_class: String):
 
 	if count > 0:
 		zone.center = center / count
+
+## 3D Mode - Grid Layout
+
+func organize_windows_3d():
+	"""Organize all windows in a grid layout facing the player (3D mode)"""
+	if not camera:
+		push_warning("Cannot organize windows - camera not found")
+		return
+
+	# Grid layout parameters
+	var grid_spacing = 3.0  # meters between windows
+	var grid_columns = 4
+	var grid_start_distance = 5.0  # meters from player
+	var grid_height = 1.5  # center height of grid
+
+	# Get player position and forward direction
+	var player_pos = camera.global_position
+	var player_forward = -camera.global_transform.basis.z
+
+	# Calculate grid center position (in front of player)
+	var grid_center = player_pos + player_forward * grid_start_distance
+
+	# Get Window2DManager to check minimized state
+	var window_2d_manager = get_node_or_null("/root/Main/Window2DManager")
+
+	# Get all visible window IDs (exclude minimized)
+	var visible_window_ids = []
+	for window_id in window_quads.keys():
+		var is_minimized = false
+
+		# Check if window is minimized in Window2DManager
+		if window_2d_manager:
+			var window_2d_nodes = window_2d_manager.get("window_2d_nodes")
+			if window_2d_nodes and window_id in window_2d_nodes:
+				var window_2d = window_2d_nodes[window_id]
+				is_minimized = window_2d.get("is_minimized")
+
+		if not is_minimized:
+			visible_window_ids.append(window_id)
+
+	print("Organizing ", visible_window_ids.size(), " windows in 3D grid")
+
+	# Position each window in grid
+	var index = 0
+	for window_id in visible_window_ids:
+		if window_id not in window_quads:
+			continue
+
+		var quad = window_quads[window_id]
+
+		# Calculate grid position
+		var row = index / grid_columns
+		var col = index % grid_columns
+
+		# Calculate offset from grid center
+		# Center the grid horizontally
+		var offset_x = (col - (grid_columns - 1) / 2.0) * grid_spacing
+		var offset_y = -row * grid_spacing  # Stack vertically downward
+
+		# Calculate position in world space
+		# Use camera's right and up vectors for proper orientation
+		var camera_right = camera.global_transform.basis.x
+		var camera_up = camera.global_transform.basis.y
+
+		var window_pos = grid_center
+		window_pos += camera_right * offset_x
+		window_pos += camera_up * offset_y
+		window_pos.y = grid_height  # Fix height
+
+		# Position the window
+		quad.global_position = window_pos
+
+		# Make window face the player (billboard)
+		var to_camera = camera.global_position - quad.global_position
+		var look_angle = atan2(to_camera.x, to_camera.z)
+		quad.rotation.y = look_angle
+
+		# Make window visible
+		quad.visible = true
+
+		index += 1
+
+	# Hide minimized windows
+	for window_id in window_quads.keys():
+		if window_id not in visible_window_ids:
+			var quad = window_quads[window_id]
+			quad.visible = false
+
+	print("  Grid organized: ", visible_window_ids.size(), " windows visible")

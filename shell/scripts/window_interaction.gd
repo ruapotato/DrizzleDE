@@ -25,6 +25,7 @@ enum WindowState { NONE, HOVERED, SELECTED }
 
 var camera: Camera3D
 var compositor: Node
+var mode_manager: Node = null
 
 # State management
 var current_state := WindowState.NONE
@@ -68,11 +69,15 @@ func _ready():
 	if not compositor:
 		push_error("Window interaction: Compositor not found!")
 
+	# Find mode manager
+	mode_manager = get_node_or_null("/root/Main/ModeManager")
+
 	create_mouse_sphere()
 
 	print("WindowInteraction initialized!")
 	print("  Camera: ", camera)
 	print("  Compositor: ", compositor)
+	print("  ModeManager: ", mode_manager)
 
 func create_mouse_sphere():
 	# Create a 3D sphere for the mouse cursor
@@ -671,12 +676,20 @@ func _input(event):
 				return
 
 		if current_state == WindowState.HOVERED:
-			# Instant select on click (no hover delay required)
-			print("Click to SELECT window ", hovered_window_id, " (instant)")
-			select_window(hovered_window_id, hovered_window_quad)
-			pulse_click()
-			get_viewport().set_input_as_handled()
-			return
+			# Check if we're in 3D mode - if so, focus window and enter 2D mode
+			if mode_manager and mode_manager.is_3d_mode():
+				print("Click window in 3D mode - focusing and entering 2D mode")
+				mode_manager.focus_window_and_enter_2d(hovered_window_id)
+				pulse_click()
+				get_viewport().set_input_as_handled()
+				return
+			else:
+				# Old behavior: Instant select on click (no hover delay required)
+				print("Click to SELECT window ", hovered_window_id, " (instant)")
+				select_window(hovered_window_id, hovered_window_quad)
+				pulse_click()
+				get_viewport().set_input_as_handled()
+				return
 
 		elif current_state == WindowState.SELECTED:
 			# In 2D mode, click on whichever window is hovered (parent or popup)
