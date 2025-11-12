@@ -76,6 +76,7 @@ func _process(delta):
 		current_room_path = filesystem_generator.current_room.directory_path
 
 	# Get window interaction state to check which window is selected
+	var window_interaction = get_node_or_null("/root/Main/WindowInteraction")
 	var selected_window_id = -1
 	if window_interaction:
 		selected_window_id = window_interaction.get("selected_window_id")

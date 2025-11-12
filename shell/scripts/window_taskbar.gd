@@ -84,6 +84,10 @@ func update_taskbar():
 	if not window_display or not filesystem_generator:
 		return
 
+	# Check if window_display has the window_quads property (script loaded)
+	if not window_display.get("window_quads"):
+		return
+
 	# Get current room path
 	var current_room = filesystem_generator.current_room
 	if not current_room:
