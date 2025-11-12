@@ -33,14 +33,18 @@ func _ready():
 	print("PanelManager initialized")
 
 func _create_default_panels():
-	"""Create the default panel layout (top panel for now)"""
+	"""Create the default panel layout (top and bottom panels)"""
 
 	# Create top panel
 	top_panel = create_panel(0)  # 0 = TOP position
 
-	# Wait one frame for panel to initialize
+	# Create bottom panel
+	var bottom_panel = create_panel(1)  # 1 = BOTTOM position
+
+	# Wait one frame for panels to initialize
 	await get_tree().process_frame
 
+	# === Top Panel Widgets ===
 	# Add mode switcher widget (far left)
 	var mode_switcher = Control.new()
 	mode_switcher.set_script(ModeSwitcherWidget)
@@ -56,7 +60,11 @@ func _create_default_panels():
 	taskbar.set_script(TaskbarWidget)
 	top_panel.call("add_widget", taskbar)
 
+	# === Bottom Panel Widgets ===
+	# Bottom panel left empty for now - user can customize
+
 	print("  Created top panel with mode switcher, app launcher, and taskbar")
+	print("  Created bottom panel (empty - customize with right-click)")
 
 func create_panel(position: int, thickness: int = 40) -> Control:
 	"""Create a new panel at the specified position

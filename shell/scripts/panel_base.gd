@@ -96,8 +96,10 @@ func _show_add_widget_dialog():
 	popup.add_item("Mode Switcher", 0)
 	popup.add_item("App Launcher", 1)
 	popup.add_item("Taskbar", 2)
+	popup.add_item("Desktop Switcher", 3)
+	popup.add_item("System Monitor", 4)
 	popup.add_separator()
-	popup.add_item("Cancel", 3)
+	popup.add_item("Cancel", 5)
 
 	add_child(popup)
 	popup.position = Vector2i(get_global_mouse_position())
@@ -122,7 +124,15 @@ func _on_add_widget_selected(id: int, popup: PopupMenu):
 			var widget = Control.new()
 			widget.set_script(load("res://shell/scripts/widgets/taskbar_widget.gd"))
 			add_widget(widget, insert_index)
-		3:  # Cancel
+		3:  # Desktop Switcher
+			var widget = Control.new()
+			widget.set_script(load("res://shell/scripts/widgets/desktop_switcher_widget.gd"))
+			add_widget(widget, insert_index)
+		4:  # System Monitor
+			var widget = Control.new()
+			widget.set_script(load("res://shell/scripts/widgets/system_monitor_widget.gd"))
+			add_widget(widget, insert_index)
+		5:  # Cancel
 			pass
 
 	popup.queue_free()
@@ -287,6 +297,28 @@ func add_widget(widget: Control, at_index: int = -1):
 	widget_added.emit(widget)
 	print("  Added widget: ", widget.name, " at index ", at_index if at_index >= 0 else widgets.size() - 1)
 
+func move_widget(widget: Control, direction: int):
+	"""Move a widget left (-1) or right (1) in the panel"""
+	var idx = widgets.find(widget)
+	if idx == -1:
+		push_warning("Widget not found in panel")
+		return
+
+	var new_idx = idx + direction
+	if new_idx < 0 or new_idx >= widgets.size():
+		print("  Cannot move widget - already at edge")
+		return
+
+	# Swap widgets in array
+	var temp = widgets[new_idx]
+	widgets[new_idx] = widget
+	widgets[idx] = temp
+
+	# Update visual order
+	widget_container.move_child(widget, new_idx)
+
+	print("  Moved widget: ", widget.name, " ", "left" if direction < 0 else "right")
+
 func remove_widget(widget: Control):
 	"""Remove a widget from the panel"""
 	var idx = widgets.find(widget)
@@ -296,6 +328,7 @@ func remove_widget(widget: Control):
 
 	widgets.remove_at(idx)
 	widget_container.remove_child(widget)
+	widget.queue_free()  # Clean up widget
 	widget_removed.emit(widget)
 
 	print("  Removed widget: ", widget.name)
