@@ -231,7 +231,24 @@ func _process(_delta):
 
 	# Handle dragging
 	if is_dragging:
-		global_position = get_global_mouse_position() - drag_offset
+		var new_position = get_global_mouse_position() - drag_offset
+
+		# Clamp position to keep title bar visible and below panel
+		var viewport_size = get_viewport().get_visible_rect().size
+		var panel_height = 40  # Top panel height
+
+		# Minimum Y to keep title bar below panel
+		var min_y = panel_height
+		# Maximum Y to keep at least title bar visible
+		var max_y = viewport_size.y - TITLE_BAR_HEIGHT
+		# Maximum X to keep at least part of window visible
+		var max_x = viewport_size.x - 100  # Keep at least 100px visible
+		var min_x = -size.x + 100  # Allow dragging mostly off left side, but keep 100px visible
+
+		new_position.x = clamp(new_position.x, min_x, max_x)
+		new_position.y = clamp(new_position.y, min_y, max_y)
+
+		global_position = new_position
 
 	# Handle resizing
 	if resize_mode != ResizeMode.NONE:

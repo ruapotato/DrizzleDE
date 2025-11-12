@@ -47,6 +47,18 @@ func _gui_input(event: InputEvent):
 			_show_panel_menu(mb.global_position)
 			get_viewport().set_input_as_handled()
 
+func _unhandled_input(event: InputEvent):
+	"""Catch right-clicks that widgets didn't handle"""
+	if event is InputEventMouseButton:
+		var mb = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			# Check if click is within panel bounds
+			var mouse_pos = get_global_mouse_position()
+			var panel_rect = get_global_rect()
+			if panel_rect.has_point(mouse_pos):
+				_show_panel_menu(mb.global_position)
+				get_viewport().set_input_as_handled()
+
 func _show_panel_menu(at_position: Vector2):
 	"""Show panel configuration menu"""
 	var popup = PopupMenu.new()
@@ -177,6 +189,8 @@ func _create_widget_container():
 		widget_container = HBoxContainer.new()  # TODO: VBoxContainer for vertical panels
 
 	widget_container.name = "WidgetContainer"
+	# Allow right-clicks to pass through to panel for context menu
+	widget_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	panel_background.add_child(widget_container)
 
 	# Set alignment
