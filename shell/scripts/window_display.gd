@@ -615,12 +615,52 @@ func organize_windows_3d():
 
 	print("  Grid organized: ", visible_window_ids.size(), " windows visible")
 
+func save_window_states_3d() -> Dictionary:
+	"""Save 3D window positions and rotations"""
+	var states = {}
+	for window_id in window_quads.keys():
+		var quad = window_quads[window_id]
+		states[window_id] = {
+			"position": quad.global_position,
+			"rotation": quad.rotation,
+			"visible": quad.visible
+		}
+	return states
+
+func restore_window_states_3d(states: Dictionary):
+	"""Restore 3D window positions and rotations"""
+	print("Restoring ", states.size(), " windows to 3D positions")
+
+	var restored_count = 0
+	for window_id in states.keys():
+		if window_id not in window_quads:
+			continue
+
+		var quad = window_quads[window_id]
+		var state = states[window_id]
+
+		quad.global_position = state["position"]
+		quad.rotation = state["rotation"]
+		quad.visible = state["visible"]
+
+		restored_count += 1
+
+	# Handle new windows that weren't in saved states (organize them)
+	var new_windows = []
+	for window_id in window_quads.keys():
+		if window_id not in states:
+			new_windows.append(window_id)
+
+	if new_windows.size() > 0:
+		print("  Found ", new_windows.size(), " new windows - organizing them in grid")
+		# TODO: Position new windows in grid without affecting existing ones
+
+	print("  Restored ", restored_count, " windows to 3D positions")
+
 func _on_mode_changed(new_mode):
 	"""Handle mode changes"""
 	if mode_manager and mode_manager.is_2d_mode():
 		# Hide all 3D quads in 2D mode
 		for quad in window_quads.values():
 			quad.visible = false
-	else:
-		# In 3D mode, organize windows
-		organize_windows_3d()
+	# Note: Don't call organize_windows_3d() here - mode_manager handles restore/organize

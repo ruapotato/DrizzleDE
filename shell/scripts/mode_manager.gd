@@ -18,6 +18,9 @@ var window_2d_manager: Node = null
 # Store 2D window states when entering 3D mode
 var window_2d_states := {}  # window_id -> {position: Vector2, size: Vector2, minimized: bool, maximized: bool}
 
+# Store 3D window states when entering 2D mode
+var window_3d_states := {}  # window_id -> {position: Vector3, rotation: Vector3, visible: bool}
+
 func _ready():
 	# Find required nodes
 	player_controller = get_node_or_null("/root/Main/Player")
@@ -75,16 +78,24 @@ func switch_to_3d_mode():
 	# Force the window to grab focus to ensure input works
 	get_viewport().get_window().grab_focus()
 
-	# Organize windows into 3D grid
-	if window_display and window_display.has_method("organize_windows_3d"):
-		window_display.organize_windows_3d()
+	# Restore 3D window positions or organize into grid
+	if window_display:
+		if window_3d_states.size() > 0 and window_display.has_method("restore_window_states_3d"):
+			# Restore previous 3D positions
+			window_display.restore_window_states_3d(window_3d_states)
+		elif window_display.has_method("organize_windows_3d"):
+			# First time or no saved states - organize into grid
+			window_display.organize_windows_3d()
 
 	current_mode = Mode.MODE_3D
 	mode_changed.emit(Mode.MODE_3D)
 
 	print("  ✓ Player controls enabled")
 	print("  ✓ Mouse captured")
-	print("  ✓ Windows organized in 3D grid")
+	if window_3d_states.size() > 0:
+		print("  ✓ Windows restored to 3D positions")
+	else:
+		print("  ✓ Windows organized in 3D grid")
 
 func switch_to_2d_mode():
 	"""Exit to 2D desktop mode - traditional window management"""
@@ -94,6 +105,9 @@ func switch_to_2d_mode():
 	print("═══════════════════════════════════")
 	print("Switching to 2D MODE")
 	print("═══════════════════════════════════")
+
+	# Save current 3D window states
+	save_3d_window_states()
 
 	# Release mouse
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
@@ -120,10 +134,19 @@ func save_2d_window_states():
 	"""Save window positions/states before entering 3D mode"""
 	if window_2d_manager:
 		window_2d_states = window_2d_manager.save_window_states()
-		print("  Saved ", window_2d_states.size(), " window states")
+		print("  Saved ", window_2d_states.size(), " 2D window states")
 	else:
 		window_2d_states.clear()
-		print("  No Window2DManager - cleared window states")
+		print("  No Window2DManager - cleared 2D window states")
+
+func save_3d_window_states():
+	"""Save 3D window positions before entering 2D mode"""
+	if window_display and window_display.has_method("save_window_states_3d"):
+		window_3d_states = window_display.save_window_states_3d()
+		print("  Saved ", window_3d_states.size(), " 3D window states")
+	else:
+		window_3d_states.clear()
+		print("  No WindowDisplay or save method - cleared 3D window states")
 
 func is_3d_mode() -> bool:
 	return current_mode == Mode.MODE_3D
