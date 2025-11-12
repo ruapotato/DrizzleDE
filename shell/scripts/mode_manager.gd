@@ -29,7 +29,8 @@ func _ready():
 	print("  Starting mode: ", "2D" if current_mode == Mode.MODE_2D else "3D")
 	print("  Window2DManager found: ", window_2d_manager != null)
 
-	# Ensure we start in clean 2D mode
+	# Ensure we start in clean 2D mode (wait a frame for everything to initialize)
+	await get_tree().process_frame
 	_initialize_2d_mode()
 
 func _input(event):
@@ -139,19 +140,26 @@ func _initialize_2d_mode():
 	"""Ensure clean 2D mode state on startup"""
 	print("  Initializing clean 2D mode...")
 
-	# Disable player controls
+	# Disable player controls (use call_deferred to ensure it happens after player init)
 	if player_controller:
-		player_controller.set_physics_process(false)
-		player_controller.set_process_input(false)
+		player_controller.call_deferred("set_physics_process", false)
+		player_controller.call_deferred("set_process_input", false)
+		print("    ✓ Player controls disabled")
 
 	# Release mouse
 	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	print("    ✓ Mouse released")
 
 	# Hide all 3D window quads
 	if window_display:
 		for quad in window_display.window_quads.values():
 			quad.visible = false
+		print("    ✓ 3D quads hidden")
 
-	print("    ✓ Player controls disabled")
-	print("    ✓ Mouse released")
-	print("    ✓ 3D quads hidden")
+	# Verify state after a frame
+	await get_tree().process_frame
+	if player_controller:
+		if player_controller.is_physics_processing() or player_controller.is_processing_input():
+			print("    ⚠ Player controls still enabled, disabling again...")
+			player_controller.set_physics_process(false)
+			player_controller.set_process_input(false)
