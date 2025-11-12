@@ -76,7 +76,6 @@ func _process(delta):
 		current_room_path = filesystem_generator.current_room.directory_path
 
 	# Get window interaction state to check which window is selected
-	var window_interaction = get_node_or_null("/root/Main/WindowInteraction")
 	var selected_window_id = -1
 	if window_interaction:
 		selected_window_id = window_interaction.get("selected_window_id")
@@ -117,7 +116,7 @@ func _process(delta):
 			var is_selected = (window_id == selected_window_id)
 			var in_2d_mode = window_interaction and window_interaction.get("in_2d_mode")
 
-			if parent_id == -1 and camera and not (is_selected and in_2d_mode):
+			if parent_id == -1 and camera and not (is_selected and in_2d_mode) :
 				# Billboard: make window face camera (Y rotation only)
 				var to_camera = camera.global_position - quad.global_position
 				var look_angle = atan2(to_camera.x, to_camera.z)
@@ -186,8 +185,8 @@ func update_window_texture(quad: MeshInstance3D, window_id: int):
 		if collision_shape and collision_shape.shape is BoxShape3D:
 			var box_shape = collision_shape.shape as BoxShape3D
 			# BoxShape3D size is the full size, and the quad is 1x1 before scaling
-			# So the collision box should match the quad size (which is now scaled)
-			box_shape.size = Vector3(1, 1, 0.01)
+			# Make it 4x larger to ensure all edges are always clickable
+			box_shape.size = Vector3(4.0, 4.0, 0.02)
 
 	# Create texture from image
 	var texture = ImageTexture.create_from_image(image)

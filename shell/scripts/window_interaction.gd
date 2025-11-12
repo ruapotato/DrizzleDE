@@ -815,6 +815,17 @@ func update_2d_mouse_position():
 				if window_size.x > 0 and window_size.y > 0:
 					var tex_x = (local_pos.x + 0.5) * window_size.x
 					var tex_y = (-local_pos.y + 0.5) * window_size.y
+
+					# Debug for large windows (including dialogs)
+					if window_size.x > 800 or window_size.y > 600:
+						# Check if we're near edges
+						var near_top = tex_y < 50
+						var near_bottom = tex_y > window_size.y - 50
+						if near_top or near_bottom:
+							print("  EDGE CLICK: size=", window_size, " local_pos=", local_pos,
+								  " tex=", Vector2(tex_x, tex_y), " quad.scale=", hit_quad.scale,
+								  " near_top=", near_top, " near_bottom=", near_bottom)
+
 					window_mouse_pos = Vector2(
 						clamp(tex_x, 0, window_size.x - 1),
 						clamp(tex_y, 0, window_size.y - 1)
