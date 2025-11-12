@@ -13,6 +13,7 @@ var current_mode := Mode.MODE_2D  # Start in 2D mode
 var player_controller: Node = null
 var camera: Camera3D = null
 var window_display: Node = null
+var window_2d_manager: Node = null
 
 # Store 2D window states when entering 3D mode
 var window_2d_states := {}  # window_id -> {position: Vector2, size: Vector2, minimized: bool, maximized: bool}
@@ -22,9 +23,11 @@ func _ready():
 	player_controller = get_node_or_null("/root/Main/Player")
 	camera = get_node_or_null("/root/Main/Player/Camera")
 	window_display = get_node_or_null("/root/Main/WindowDisplay")
+	window_2d_manager = get_node_or_null("/root/Main/Window2DManager")
 
 	print("ModeManager initialized")
 	print("  Starting mode: ", "2D" if current_mode == Mode.MODE_2D else "3D")
+	print("  Window2DManager found: ", window_2d_manager != null)
 
 func _input(event):
 	# ESC key: Exit 3D mode → 2D mode
@@ -82,8 +85,8 @@ func switch_to_2d_mode():
 		player_controller.set_process_input(false)
 
 	# Restore windows to 2D positions
-	if window_display and window_display.has_method("restore_windows_2d"):
-		window_display.restore_windows_2d(window_2d_states)
+	if window_2d_manager and window_2d_states.size() > 0:
+		window_2d_manager.restore_window_states(window_2d_states)
 
 	current_mode = Mode.MODE_2D
 	mode_changed.emit(Mode.MODE_2D)
@@ -94,12 +97,24 @@ func switch_to_2d_mode():
 
 func save_2d_window_states():
 	"""Save window positions/states before entering 3D mode"""
-	# TODO: Implement when we have 2D window manager
-	window_2d_states.clear()
-	print("  Saved 2D window states")
+	if window_2d_manager:
+		window_2d_states = window_2d_manager.save_window_states()
+		print("  Saved ", window_2d_states.size(), " window states")
+	else:
+		window_2d_states.clear()
+		print("  No Window2DManager - cleared window states")
 
 func is_3d_mode() -> bool:
 	return current_mode == Mode.MODE_3D
 
 func is_2d_mode() -> bool:
 	return current_mode == Mode.MODE_2D
+
+func focus_window_and_enter_2d(window_id: int):
+	"""Focus a specific window and switch to 2D mode"""
+	# Switch to 2D mode first
+	switch_to_2d_mode()
+
+	# Focus the window
+	if window_2d_manager:
+		window_2d_manager.focus_window(window_id)

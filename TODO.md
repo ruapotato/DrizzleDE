@@ -34,87 +34,64 @@ Transform DrizzleDE into a usable daily-driver desktop environment with dual mod
 - [x] Player controls enable/disable based on mode
 - [x] Mouse capture/release logic
 - [x] Mode change signal system
+- [x] Window2D class (2D window with decorations, drag, resize)
+- [x] Window2DManager (manages all 2D windows, Z-order, focus)
+- [x] Integration between Window2DManager and ModeManager
+- [x] Phase 1: 2D Window Management - COMPLETE
 
 ### 🚧 In Progress
-None currently - awaiting next implementation phase
+Phase 2: 3D Window Grid Organization (NEXT)
 
 ## Remaining Implementation Tasks
 
-### Phase 1: 2D Window Management (NEXT)
+### Phase 1: 2D Window Management ✅ COMPLETED
 
-#### 1.1 Create Window2D Class (Godot Control node)
+#### 1.1 Create Window2D Class (Godot Control node) ✅
 **File:** `shell/scripts/window_2d.gd`
 
-```gdscript
-extends Control
-# Represents a 2D window with decorations and X11 content
+**Features implemented:**
+- [x] Title bar with window name
+- [x] Close button (sends X11 close request)
+- [x] Minimize button (hides window, marks as minimized)
+- [x] Maximize button (expands to fill screen)
+- [x] Fullscreen support (no decorations, covers entire viewport)
+- [x] Drag by title bar
+- [x] Resize by edges/corners (8 resize handles)
+- [x] Double-click title bar to maximize/restore
+- [x] Update X11 texture content every frame
+- [x] Handle window close events from X11
+- [x] Proper cursor shapes for resize handles
+- [x] Minimum window size constraints
+- [x] Save/restore pre-maximize state
 
-var window_id: int = -1
-var is_minimized: bool = false
-var is_maximized: bool = false
-var is_fullscreen: bool = false
-
-# Store pre-maximize state
-var restore_position: Vector2
-var restore_size: Vector2
-
-# Child nodes:
-# - TitleBar (HBoxContainer)
-#   - Label (window title)
-#   - MinimizeButton
-#   - MaximizeButton
-#   - CloseButton
-# - ContentContainer (TextureRect for X11 content)
-# - ResizeHandles (8 small areas for corner/edge resizing)
-```
-
-**Features to implement:**
-- [ ] Title bar with window name
-- [ ] Close button (sends X11 close request)
-- [ ] Minimize button (hides window, marks as minimized)
-- [ ] Maximize button (expands to fill screen)
-- [ ] Fullscreen support (no decorations, covers entire viewport)
-- [ ] Drag by title bar
-- [ ] Resize by edges/corners (8 resize handles)
-- [ ] Double-click title bar to maximize/restore
-- [ ] Update X11 texture content every frame
-- [ ] Handle window close events from X11
-
-#### 1.2 Create Window2DManager
+#### 1.2 Create Window2DManager ✅
 **File:** `shell/scripts/window_2d_manager.gd`
 
-```gdscript
-extends Control
-# Manages all 2D windows, stacking order, and desktop interactions
+**Features implemented:**
+- [x] Create Window2D nodes for each X11 window
+- [x] Track window Z-order (front to back)
+- [x] Click window to bring to front
+- [x] Save/restore window positions between mode switches
+- [x] Handle minimized windows (hide but preserve state)
+- [x] Handle maximized windows (fill screen, save restore state)
+- [x] Handle fullscreen windows (no decorations, cover viewport)
+- [x] Destroy Window2D nodes when X11 window closes
+- [x] Window cascading on spawn
+- [x] Window list change signals
+- [x] Focus management
 
-var window_2d_nodes := {}  # window_id -> Window2D
-var window_z_order := []   # Array of window_ids, front to back
+**Features deferred:**
+- [ ] Snap to screen edges when dragging (Phase 4)
+- [ ] Snap to other windows (Phase 4)
 
-# Desktop snap zones (configurable)
-var snap_distance := 20  # pixels
-var snap_to_edges := true
-var snap_to_other_windows := true
-```
-
-**Features to implement:**
-- [ ] Create Window2D nodes for each X11 window
-- [ ] Track window Z-order (front to back)
-- [ ] Click window to bring to front
-- [ ] Snap to screen edges when dragging
-- [ ] Snap to other windows (optional)
-- [ ] Save/restore window positions between mode switches
-- [ ] Handle minimized windows (hide but preserve state)
-- [ ] Handle maximized windows (fill screen, save restore state)
-- [ ] Handle fullscreen windows (no decorations, cover viewport)
-- [ ] Destroy Window2D nodes when X11 window closes
-
-#### 1.3 Integration with ModeManager
+#### 1.3 Integration with ModeManager ✅
 **File:** `shell/scripts/mode_manager.gd`
 
-**Changes needed:**
-- [ ] When switching to 2D mode: tell Window2DManager to show all windows
-- [ ] When switching to 3D mode: tell Window2DManager to save states and hide
-- [ ] Pass minimized state to 3D window grid (hide minimized windows)
+**Changes completed:**
+- [x] When switching to 2D mode: tell Window2DManager to show all windows
+- [x] When switching to 3D mode: tell Window2DManager to save states and hide
+- [x] Added `focus_window_and_enter_2d()` method for 3D window clicks
+- [x] Save/restore window states via Window2DManager
 
 ### Phase 2: 3D Window Grid Organization
 
@@ -400,8 +377,8 @@ shell/
 ## Current Branch Status
 
 **Branch:** main
-**Last Commit:** 058454d - "Add ModeManager for 3D/2D mode switching"
-**Next Task:** Create Window2D class and Window2DManager
+**Last Commit:** (pending) - "Implement Phase 1: 2D Window Management"
+**Next Task:** Implement Phase 2: 3D Window Grid Organization
 
 ## Instructions for Continuing
 
@@ -427,4 +404,4 @@ git log --oneline | grep -i "mode\|window\|panel"
 
 ---
 *Last Updated: 2025-11-12*
-*Status: Phase 1 starting - ModeManager complete*
+*Status: Phase 1 complete - Ready for Phase 2*
