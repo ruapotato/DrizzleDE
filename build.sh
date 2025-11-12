@@ -1,6 +1,6 @@
 #!/bin/bash
 # DrizzleDE Build Script
-# Builds the Wayland compositor GDExtension for Godot 4
+# Builds the X11 compositor GDExtension for Godot 4
 
 set -e  # Exit on error
 
@@ -28,7 +28,7 @@ check_command() {
 check_pkg_config() {
     if ! pkg-config --exists $1; then
         echo -e "${RED}Error: $1 development package not found${NC}"
-        echo "Install with: sudo dnf install $2"
+        echo "Install with: $2"
         exit 1
     fi
 }
@@ -38,26 +38,24 @@ check_command scons
 check_command g++
 check_command pkg-config
 
-# Check libraries
-check_pkg_config wlroots "wlroots-devel (Fedora) or libwlroots-dev (Ubuntu)"
-check_pkg_config wayland-server "wayland-devel (Fedora) or libwayland-dev (Ubuntu)"
-check_pkg_config pixman-1 "pixman-devel (Fedora) or libpixman-1-dev (Ubuntu)"
+# Check X11 libraries
+check_pkg_config x11 "sudo dnf install libX11-devel (Fedora) or sudo apt install libx11-dev (Ubuntu)"
+check_pkg_config xcomposite "sudo dnf install libXcomposite-devel (Fedora) or sudo apt install libxcomposite-dev (Ubuntu)"
+check_pkg_config xdamage "sudo dnf install libXdamage-devel (Fedora) or sudo apt install libxdamage-dev (Ubuntu)"
+check_pkg_config xfixes "sudo dnf install libXfixes-devel (Fedora) or sudo apt install libxfixes-dev (Ubuntu)"
+check_pkg_config xrender "sudo dnf install libXrender-devel (Fedora) or sudo apt install libxrender-dev (Ubuntu)"
+check_pkg_config xtst "sudo dnf install libXtst-devel (Fedora) or sudo apt install libxtst-dev (Ubuntu)"
 
-# Check for wayland-protocols (headers needed for xdg-shell)
-if [ ! -f "/usr/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml" ] && \
-   [ ! -f "/usr/local/share/wayland-protocols/stable/xdg-shell/xdg-shell.xml" ]; then
-    echo -e "${RED}Error: wayland-protocols not found${NC}"
-    echo "Install with: sudo apt install wayland-protocols (Ubuntu) or sudo dnf install wayland-protocols-devel (Fedora)"
-    exit 1
-fi
+# Check for Xvfb
+check_command Xvfb
 
 echo -e "${GREEN}✓ All dependencies found${NC}"
 
 # Print versions
 echo -e "\n${YELLOW}Dependency versions:${NC}"
-echo "  wlroots: $(pkg-config --modversion wlroots)"
-echo "  wayland-server: $(pkg-config --modversion wayland-server)"
-echo "  pixman: $(pkg-config --modversion pixman-1)"
+echo "  X11: $(pkg-config --modversion x11)"
+echo "  Xcomposite: $(pkg-config --modversion xcomposite)"
+echo "  Xdamage: $(pkg-config --modversion xdamage)"
 
 # Check if godot-cpp is initialized
 if [ ! -d "godot-cpp/gdextension" ]; then
@@ -67,12 +65,6 @@ if [ ! -d "godot-cpp/gdextension" ]; then
 fi
 
 echo -e "${GREEN}✓ godot-cpp submodule initialized${NC}"
-
-# Generate Wayland protocol headers if needed
-if [ ! -f "protocols/xdg-shell-protocol.h" ]; then
-    echo -e "\n${YELLOW}Generating Wayland protocol headers...${NC}"
-    ./generate_protocols.sh
-fi
 
 # Determine build target
 TARGET=${1:-template_debug}
@@ -87,11 +79,11 @@ echo -e "\n${YELLOW}Starting build...${NC}"
 scons platform=linux target=$TARGET -j$JOBS
 
 # Check if build succeeded
-if [ -f "addons/wayland_compositor/bin/libwayland_compositor.linux.$TARGET.x86_64.so" ]; then
+if [ -f "addons/x11_compositor/bin/libx11_compositor.linux.$TARGET.x86_64.so" ]; then
     echo -e "\n${GREEN}==================================${NC}"
     echo -e "${GREEN}Build successful!${NC}"
     echo -e "${GREEN}==================================${NC}"
-    echo -e "\nLibrary built: ${GREEN}addons/wayland_compositor/bin/libwayland_compositor.linux.$TARGET.x86_64.so${NC}"
+    echo -e "\nLibrary built: ${GREEN}addons/x11_compositor/bin/libx11_compositor.linux.$TARGET.x86_64.so${NC}"
     echo -e "\nYou can now run the project with Godot 4"
 else
     echo -e "\n${RED}Build failed - library not found${NC}"
