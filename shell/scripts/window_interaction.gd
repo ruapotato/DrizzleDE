@@ -733,7 +733,7 @@ func animate_window_to_focus(quad: MeshInstance3D, window_id: int):
 	if player and player.has_method("set_interaction_mode"):
 		player.set_interaction_mode(true)
 
-	print("  Animating camera to window: distance=", focus_distance)
+	print("  Animating camera to window: distance=", optimal_distance)
 	print("  Target position: ", target_position)
 	print("  Window position: ", quad.global_position)
 
