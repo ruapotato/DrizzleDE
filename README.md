@@ -8,11 +8,12 @@ Transform your Linux desktop from a flat, constrained 2D plane into an infinite 
 
 ### Core Concept
 
-- **Navigate Your File System**: Your file system becomes a 3D world - each directory is a room, files are interactive cubes
-- **Spatial File Browsing**: Walk through directories as physical spaces, with hallways connecting to subdirectories
-- **Interactive Files**: Click files to open them, click .desktop files to launch applications in the 3D space
-- **Build Within Your World**: Place walls, floors, and structures within the auto-generated file system rooms
-- **First-Person Navigation**: Walk through your workspace with standard FPS controls
+- **Navigate Your File System**: Your file system becomes a 3D world - each directory is a circular room with files as cubes on the floor
+- **Hallway Navigation**: Walk through physical hallways to enter subdirectories; each room shows subdirectories as tunnels extending from the room edge
+- **Interactive Files**: Click file cubes to open them; click .desktop files to launch applications that appear as 3D windows in the current room
+- **2D Window Mode**: Click any window to smoothly transition to comfortable 2D interaction mode with full mouse/keyboard support
+- **Build Within Your World**: Place walls, floors, and structures within the auto-generated file system rooms using Valheim-style mechanics
+- **First-Person Navigation**: Walk through your workspace with standard FPS controls (WASD, jump, sprint)
 
 ### Why This Matters
 
@@ -93,16 +94,33 @@ Built on proven technologies:
 
 ### Recent Achievements
 
-- **3D File System Navigation**: Your file system is now a navigable 3D world! Each directory is a room, subdirectories are hallways, and files are interactive cubes
-- **Interactive File Cubes**: Click files to open them with default applications, click .desktop files to launch apps in the 3D space
-- **Spatial File Browsing**: Files are organized in color-coded cubes (blue for code, purple for images, green for apps, etc.)
-- **Room-Based Directories**: Directories auto-generate as rooms with floors, with size scaling based on content
+#### File System Navigation
+- **3D File System**: Your file system is now a navigable 3D world! Each directory is a circular room with:
+  - Files displayed as color-coded 0.5m cubes (blue for code, purple for images, green for apps, etc.)
+  - Subdirectories as hallways extending radially from room edges (like clock hands)
+  - Room size auto-scales based on content (prevents hallway overlap)
+  - Smart hallway transitions that seamlessly load adjacent rooms
+- **Interactive Files**: Click files to open them (xdg-open), click .desktop files to launch apps in the 3D space
+- **Room-Based Window Management**: Applications launched from a directory stay in that room
+
+#### Window Interaction & Usability
+- **2D Interaction Mode**: Click windows to enter comfortable 2D interaction mode
+  - Camera smoothly flies to window and positions for optimal viewing
+  - Windows billboard (auto-rotate) to always face you when idle
+  - Gravity and movement disabled during interaction for stable use
+  - Title bar shows window name with exit button
+  - ESC or exit button to return to 3D navigation mode
+- **Full Input Support**: Complete mouse and keyboard forwarding using XTest (bypasses Firefox's synthetic event detection)
+- **Popup & Dialog Support**: Menus and dialogs positioned correctly, fully interactive edges with 2560x1440 Xvfb screen
+
+#### Building & World
+- **Valheim-Style Building**: Complete building system with snap mechanics, 5 piece types, and intuitive placement
+- **First-Person Controller**: Physics-based walking with gravity, jumping, sprint, and proper ground collision
+
+#### Technical Foundation
 - **Project Restructuring**: Separated demo (minimal X11 example) from shell (full application)
-- **Valheim-Style Building System**: Complete building system with snap mechanics, 5 piece types, and intuitive placement
-- **First-Person Controller**: Physics-based walking with gravity, jumping, and proper ground collision
-- **XTest Integration**: Realistic input events that bypass synthetic event detection (fixes Firefox popup menus!)
-- **Popup Window Support**: Transient windows (menus, dialogs) positioned correctly relative to parent windows
-- **Full Keyboard Support**: All special keys, modifiers, and text input working correctly
+- **Xvfb Integration**: Headless X server with automatic display management
+- **X11 Composite**: Window content capture with Damage extension for efficiency
 
 ## Requirements
 
@@ -234,11 +252,10 @@ Applications will appear as textured quads in the 3D environment!
 See [BUILDING_QUICKSTART.md](BUILDING_QUICKSTART.md) for detailed building system guide.
 
 #### Window Interaction
-- **Look at window** - Hover highlight appears
-- **Hold gaze for 0.5s** - Window becomes selectable (green highlight)
-- **Left click** - Select window (receives all input)
-- **Escape** - Deselect window (restore camera controls)
-- **Look away** - Auto-deselect selected window
+- **Left click on window** - Enter 2D interaction mode (camera flies to window, enables comfortable mouse interaction)
+- **In 2D mode**: Full mouse and keyboard input forwarded to window, popups and dialogs fully interactive
+- **ESC or Exit button** - Exit 2D mode, return to 3D navigation
+- **File cubes**: Left click to open files (xdg-open) or launch .desktop applications
 
 #### Application Launcher
 - **I key** - Toggle application menu (when no window selected)
