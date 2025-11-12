@@ -93,12 +93,10 @@ func _physics_process(delta):
 	if building_ui and building_ui.visible:
 		return
 
-	# Always keep mouse captured when not in a menu
-	if Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
+	# Sync mouse capture state (but respect user's ESC toggle)
+	# Only recapture if we WANT it captured (_mouse_captured = true)
+	if _mouse_captured and Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
 		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-		_mouse_captured = true
-	else:
-		_mouse_captured = true
 
 	# Add gravity
 	if not is_on_floor():
