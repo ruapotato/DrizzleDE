@@ -29,6 +29,9 @@ func _ready():
 	print("  Starting mode: ", "2D" if current_mode == Mode.MODE_2D else "3D")
 	print("  Window2DManager found: ", window_2d_manager != null)
 
+	# Ensure we start in clean 2D mode
+	_initialize_2d_mode()
+
 func _input(event):
 	# ESC key: Exit 3D mode → 2D mode
 	if event.is_action_pressed("ui_cancel"):
@@ -131,3 +134,24 @@ func focus_window_and_enter_2d(window_id: int):
 	# Focus the window
 	if window_2d_manager:
 		window_2d_manager.focus_window(window_id)
+
+func _initialize_2d_mode():
+	"""Ensure clean 2D mode state on startup"""
+	print("  Initializing clean 2D mode...")
+
+	# Disable player controls
+	if player_controller:
+		player_controller.set_physics_process(false)
+		player_controller.set_process_input(false)
+
+	# Release mouse
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+
+	# Hide all 3D window quads
+	if window_display:
+		for quad in window_display.window_quads.values():
+			quad.visible = false
+
+	print("    ✓ Player controls disabled")
+	print("    ✓ Mouse released")
+	print("    ✓ 3D quads hidden")
