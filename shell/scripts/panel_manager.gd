@@ -39,23 +39,23 @@ func _create_default_panels():
 	top_panel.background_color = Color(0.2, 0.2, 0.25, 0.95)
 	add_child(top_panel)
 
-	# Wait for panel to be ready
-	await top_panel.ready
+	# Wait one frame for panel to initialize
+	await get_tree().process_frame
 
 	# Add app launcher widget (left side)
 	var app_launcher = Control.new()
 	app_launcher.set_script(AppLauncherWidget)
-	top_panel.add_widget(app_launcher)
+	top_panel.call("add_widget", app_launcher)
 
 	# Add taskbar widget (center - expands)
 	var taskbar = Control.new()
 	taskbar.set_script(TaskbarWidget)
-	top_panel.add_widget(taskbar)
+	top_panel.call("add_widget", taskbar)
 
 	# Add mode switcher widget (right side)
 	var mode_switcher = Control.new()
 	mode_switcher.set_script(ModeSwitcherWidget)
-	top_panel.add_widget(mode_switcher)
+	top_panel.call("add_widget", mode_switcher)
 
 	print("  Created top panel with app launcher, taskbar, and mode switcher")
 

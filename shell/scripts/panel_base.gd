@@ -155,6 +155,7 @@ func _create_background():
 	"""Create the panel background"""
 	panel_background = PanelContainer.new()
 	panel_background.name = "PanelBackground"
+	panel_background.mouse_filter = Control.MOUSE_FILTER_IGNORE  # Let clicks through to panel
 	add_child(panel_background)
 
 	# Fill the panel
