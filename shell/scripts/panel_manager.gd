@@ -12,6 +12,8 @@ var top_panel: Control = null
 
 # Widget scripts
 var ModeSwitcherWidget = preload("res://shell/scripts/widgets/mode_switcher_widget.gd")
+var AppLauncherWidget = preload("res://shell/scripts/widgets/app_launcher_widget.gd")
+var TaskbarWidget = preload("res://shell/scripts/widgets/taskbar_widget.gd")
 
 func _ready():
 	# Find mode manager
@@ -40,12 +42,22 @@ func _create_default_panels():
 	# Wait for panel to be ready
 	await top_panel.ready
 
-	# Add mode switcher widget to top panel
+	# Add app launcher widget (left side)
+	var app_launcher = Control.new()
+	app_launcher.set_script(AppLauncherWidget)
+	top_panel.add_widget(app_launcher)
+
+	# Add taskbar widget (center - expands)
+	var taskbar = Control.new()
+	taskbar.set_script(TaskbarWidget)
+	top_panel.add_widget(taskbar)
+
+	# Add mode switcher widget (right side)
 	var mode_switcher = Control.new()
 	mode_switcher.set_script(ModeSwitcherWidget)
 	top_panel.add_widget(mode_switcher)
 
-	print("  Created top panel with mode switcher")
+	print("  Created top panel with app launcher, taskbar, and mode switcher")
 
 func _on_mode_changed(new_mode):
 	"""Hide panels in 3D mode, show in 2D mode"""
