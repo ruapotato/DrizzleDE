@@ -314,7 +314,6 @@ func get_spawn_position(window_id: int, app_class: String, logical_parent_id: in
 	# Use logical_parent_id if provided (for orphan dialogs), otherwise get from compositor
 	var parent_id = logical_parent_id if logical_parent_id != -1 else compositor.get_parent_window_id(window_id)
 	if parent_id != -1 and parent_id in window_quads:
-		# This is a popup - position it relative to the parent window using actual X11 coordinates
 		var parent_quad = window_quads[parent_id]
 		var parent_pos_center = parent_quad.global_position
 		var parent_rotation = parent_quad.rotation
@@ -323,6 +322,33 @@ func get_spawn_position(window_id: int, app_class: String, logical_parent_id: in
 		var parent_size = compositor.get_window_size(parent_id)
 		var popup_size = compositor.get_window_size(window_id)
 
+		# Check if this is an orphan dialog (logical parent, not X11 parent)
+		var is_orphan_dialog = (logical_parent_id != -1 and compositor.get_parent_window_id(window_id) == -1)
+
+		if is_orphan_dialog:
+			# For orphan dialogs, X11 positions are absolute (not relative to parent)
+			# Use a simple default position: centered slightly in front of parent
+			print("  Positioning ORPHAN dialog window ", window_id, " with default position near parent ", parent_id)
+
+			var popup_width_world = float(popup_size.x) / pixels_per_world_unit
+			var popup_height_world = float(popup_size.y) / pixels_per_world_unit
+
+			# Position dialog centered and slightly in front of parent (in parent's local space)
+			var popup_center_local = Vector3(0, 0, 0.1)  # Centered, 0.1 units in front
+
+			# Apply parent's rotation and position
+			var rotation_basis = Basis.from_euler(parent_quad.rotation)
+			var rotated_offset = rotation_basis * popup_center_local
+			var popup_center_world = parent_quad.global_position + rotated_offset
+
+			print("    Parent world pos: ", parent_pos_center)
+			print("    Parent rotation: ", parent_rotation)
+			print("    Popup center (world): ", popup_center_world)
+			print("    Popup size (world): ", popup_width_world, " x ", popup_height_world)
+
+			return popup_center_world
+
+		# Regular popup - use X11 positioning
 		# Get actual X11 window positions (in pixels) - these are TOP-LEFT corners
 		var popup_pos_px = compositor.get_window_position(window_id)
 		var parent_pos_px = compositor.get_window_position(parent_id)
