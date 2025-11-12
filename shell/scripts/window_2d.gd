@@ -231,8 +231,7 @@ func _process(_delta):
 
 	# Handle dragging
 	if is_dragging:
-		var mouse_pos = get_viewport().get_mouse_position()
-		position = mouse_pos - drag_offset
+		global_position = get_global_mouse_position() - drag_offset
 
 	# Handle resizing
 	if resize_mode != ResizeMode.NONE:
@@ -251,6 +250,14 @@ func update_texture():
 	if content_container:
 		content_container.texture = texture
 
+func _gui_input(event: InputEvent):
+	"""Handle window clicks for focus"""
+	if event is InputEventMouseButton:
+		var mb = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_LEFT and mb.pressed:
+			window_focused.emit(window_id)
+			get_viewport().set_input_as_handled()
+
 func _on_title_bar_input(event: InputEvent):
 	"""Handle title bar interactions (dragging, double-click to maximize)"""
 	if event is InputEventMouseButton:
@@ -260,15 +267,17 @@ func _on_title_bar_input(event: InputEvent):
 			if mb.pressed:
 				# Start dragging
 				is_dragging = true
-				drag_offset = mb.position
+				drag_offset = get_global_mouse_position() - global_position
 				window_focused.emit(window_id)
 
 				# Check for double-click to maximize
 				if mb.double_click:
 					_on_maximize_pressed()
+				get_viewport().set_input_as_handled()
 			else:
 				# Stop dragging
 				is_dragging = false
+				get_viewport().set_input_as_handled()
 
 func _on_resize_handle_input(event: InputEvent, mode: ResizeMode):
 	"""Handle resize handle interactions"""

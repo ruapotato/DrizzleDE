@@ -106,12 +106,20 @@ func create_mouse_sphere():
 	print("Mouse sphere created and visible")
 
 func _process(delta):
-	# Disable all window interaction in 2D mode (Window2DManager handles it)
+	# Disable window interaction in 2D mode, but keep processing for proper cleanup
 	if mode_manager and mode_manager.is_2d_mode():
-		# Hide mouse sphere
+		# Hide mouse sphere in 2D mode
 		if mouse_sphere:
 			mouse_sphere.visible = false
+		# Deselect any selected window
+		if current_state == WindowState.SELECTED:
+			deselect_window()
+		current_state = WindowState.NONE
 		return
+	else:
+		# In 3D mode, ensure mouse sphere is visible
+		if mouse_sphere:
+			mouse_sphere.visible = true
 	if not camera or not compositor or not compositor.is_initialized():
 		return
 

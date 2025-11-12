@@ -34,7 +34,77 @@ func _ready():
 	# Create widget container
 	_create_widget_container()
 
+	# Enable input for right-click menu
+	mouse_filter = Control.MOUSE_FILTER_PASS
+
 	print("Panel initialized at position: ", ["TOP", "BOTTOM", "LEFT", "RIGHT"][panel_position])
+
+func _gui_input(event: InputEvent):
+	"""Handle right-click for panel menu"""
+	if event is InputEventMouseButton:
+		var mb = event as InputEventMouseButton
+		if mb.button_index == MOUSE_BUTTON_RIGHT and mb.pressed:
+			_show_panel_menu(mb.global_position)
+			get_viewport().set_input_as_handled()
+
+func _show_panel_menu(at_position: Vector2):
+	"""Show panel configuration menu"""
+	var popup = PopupMenu.new()
+	popup.add_item("Add Widget...", 0)
+	popup.add_item("Remove Panel", 1)
+	popup.add_separator()
+	popup.add_item("Panel Properties...", 2)
+
+	add_child(popup)
+	popup.position = Vector2i(at_position)
+	popup.popup()
+	popup.id_pressed.connect(_on_panel_menu_selected.bind(popup))
+
+func _on_panel_menu_selected(id: int, popup: PopupMenu):
+	"""Handle panel menu selection"""
+	match id:
+		0:  # Add Widget
+			_show_add_widget_dialog()
+		1:  # Remove Panel
+			print("Remove panel (not yet implemented)")
+		2:  # Panel Properties
+			print("Panel properties (not yet implemented)")
+
+	popup.queue_free()
+
+func _show_add_widget_dialog():
+	"""Show dialog to add a widget"""
+	var popup = PopupMenu.new()
+	popup.add_item("Mode Switcher", 0)
+	popup.add_item("App Launcher", 1)
+	popup.add_item("Taskbar", 2)
+	popup.add_separator()
+	popup.add_item("Cancel", 3)
+
+	add_child(popup)
+	popup.position = Vector2i(get_global_mouse_position())
+	popup.popup()
+	popup.id_pressed.connect(_on_add_widget_selected.bind(popup))
+
+func _on_add_widget_selected(id: int, popup: PopupMenu):
+	"""Handle widget addition"""
+	match id:
+		0:  # Mode Switcher
+			var widget = Control.new()
+			widget.set_script(load("res://shell/scripts/widgets/mode_switcher_widget.gd"))
+			add_widget(widget)
+		1:  # App Launcher
+			var widget = Control.new()
+			widget.set_script(load("res://shell/scripts/widgets/app_launcher_widget.gd"))
+			add_widget(widget)
+		2:  # Taskbar
+			var widget = Control.new()
+			widget.set_script(load("res://shell/scripts/widgets/taskbar_widget.gd"))
+			add_widget(widget)
+		3:  # Cancel
+			pass
+
+	popup.queue_free()
 
 func _setup_panel():
 	"""Setup panel anchors and size based on position"""
