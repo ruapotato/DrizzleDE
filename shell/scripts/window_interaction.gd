@@ -49,6 +49,8 @@ var last_raycast_hit_valid := false
 var focus_tween: Tween = null
 var original_camera_transform := {}  # Stores camera transform for restoration
 var in_2d_mode := false  # Track if we're in 2D cursor mode
+var visible_popup_windows := []  # Track popup windows visible in 2D mode
+var current_focus_distance := 0.0  # Current camera distance in 2D mode
 
 func _ready():
 	if camera_path:
@@ -112,6 +114,10 @@ func _process(delta):
 	# In 2D mode, use screen coordinates for mouse tracking
 	if in_2d_mode and current_state == WindowState.SELECTED and selected_window_quad:
 		update_2d_mouse_position()
+
+		# Check for new popup windows and adjust camera distance if needed
+		check_and_adjust_for_popups()
+
 		return  # Skip raycasting when in 2D mode
 
 	# Raycast from camera center
@@ -510,6 +516,89 @@ func find_window_quad(window_id: int) -> MeshInstance3D:
 
 	return null
 
+func check_and_adjust_for_popups():
+	"""Check for new popup windows and adjust camera distance to fit all visible windows"""
+	if not compositor or selected_window_id == -1:
+		return
+
+	# Get all window IDs and find popups for the selected window
+	var window_ids = compositor.get_window_ids()
+	var current_popups = []
+
+	for wid in window_ids:
+		var parent_id = compositor.get_parent_window_id(wid)
+		# Check if this is a popup of the selected window and is visible/mapped
+		if parent_id == selected_window_id and compositor.is_window_mapped(wid):
+			current_popups.append(wid)
+
+	# Check if popup list has changed
+	if current_popups == visible_popup_windows:
+		return  # No changes, nothing to do
+
+	print("  Popup windows changed: was ", visible_popup_windows, " now ", current_popups)
+
+	# Update tracked popups
+	visible_popup_windows = current_popups
+
+	# If there are no popups, don't change anything
+	# (we only zoom out for popups, never zoom back in)
+	if current_popups.is_empty():
+		print("  No popups visible - keeping current distance: ", current_focus_distance)
+		return
+
+	# Get window_display to access window quads
+	var window_display = get_node_or_null("/root/Main/WindowDisplay")
+	if not window_display or not window_display.get("window_quads"):
+		return
+
+	var window_quads = window_display.window_quads
+
+	# Calculate optimal distance for all visible windows (parent + popups)
+	var max_distance = current_focus_distance  # Start with current distance (never zoom in)
+
+	# Calculate distance for selected parent window
+	if selected_window_quad:
+		var parent_distance = calculate_optimal_focus_distance(selected_window_quad)
+		max_distance = max(max_distance, parent_distance)
+
+	# Calculate distance for each popup
+	for popup_id in current_popups:
+		if popup_id in window_quads:
+			var popup_quad = window_quads[popup_id]
+			var popup_distance = calculate_optimal_focus_distance(popup_quad)
+			max_distance = max(max_distance, popup_distance)
+			print("  Popup ", popup_id, " requires distance: ", popup_distance)
+
+	# If we need to zoom out (max_distance > current), animate camera
+	if max_distance > current_focus_distance:
+		print("  Zooming out from ", current_focus_distance, " to ", max_distance, " to fit popup(s)")
+		animate_camera_zoom_out(max_distance)
+	else:
+		print("  All windows fit at current distance: ", current_focus_distance)
+
+func animate_camera_zoom_out(new_distance: float):
+	"""Smoothly zoom camera out to new distance"""
+	if not camera or not selected_window_quad:
+		return
+
+	# Calculate new camera position at the increased distance
+	var window_front = selected_window_quad.global_transform.basis.z
+	var target_position = selected_window_quad.global_position + window_front * new_distance
+
+	# Animate camera position
+	if focus_tween:
+		focus_tween.kill()
+
+	focus_tween = create_tween()
+	focus_tween.set_ease(Tween.EASE_OUT)
+	focus_tween.set_trans(Tween.TRANS_CUBIC)
+	focus_tween.tween_property(camera, "global_position", target_position, focus_animation_duration)
+
+	# Update stored distance
+	current_focus_distance = new_distance
+
+	print("  Camera zooming out to distance: ", new_distance)
+
 func _input(event):
 	# Handle mouse button events
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
@@ -699,6 +788,8 @@ func animate_window_to_focus(quad: MeshInstance3D, window_id: int):
 
 	# Calculate optimal distance based on window size
 	var optimal_distance = calculate_optimal_focus_distance(quad)
+	current_focus_distance = optimal_distance
+	visible_popup_windows = []  # Reset popup tracking
 
 	# After billboarding, window's -Z points away from camera (toward window back)
 	# So window's +Z points toward camera (the front face of the window)
