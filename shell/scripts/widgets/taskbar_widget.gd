@@ -33,7 +33,15 @@ func _widget_ready():
 	# Create button container
 	button_container = HBoxContainer.new()
 	button_container.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	# Allow right-clicks to pass through to panel for context menu
+	button_container.mouse_filter = Control.MOUSE_FILTER_PASS
 	add_child(button_container)
+
+	# Add visual separator at start
+	var separator = Label.new()
+	separator.text = "|"
+	separator.add_theme_color_override("font_color", Color(0.5, 0.5, 0.5, 0.8))
+	button_container.add_child(separator)
 
 	# Listen for window changes
 	window_2d_manager.window_list_changed.connect(_on_window_list_changed)

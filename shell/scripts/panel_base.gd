@@ -24,6 +24,9 @@ var panel_background: PanelContainer
 # Widgets list
 var widgets := []  # Array of Control nodes
 
+# Track last right-click position for widget insertion
+var last_click_position: Vector2 = Vector2.ZERO
+
 func _ready():
 	# Set up panel based on position
 	_setup_panel()
@@ -61,9 +64,12 @@ func _unhandled_input(event: InputEvent):
 
 func _show_panel_menu(at_position: Vector2):
 	"""Show panel configuration menu"""
+	# Store click position for widget insertion
+	last_click_position = at_position
+
 	var popup = PopupMenu.new()
 	popup.add_item("Add Widget...", 0)
-	popup.add_item("Remove Panel", 1)
+	popup.add_item("Add Panel...", 1)
 	popup.add_separator()
 	popup.add_item("Panel Properties...", 2)
 
@@ -77,8 +83,8 @@ func _on_panel_menu_selected(id: int, popup: PopupMenu):
 	match id:
 		0:  # Add Widget
 			_show_add_widget_dialog()
-		1:  # Remove Panel
-			print("Remove panel (not yet implemented)")
+		1:  # Add Panel
+			_show_add_panel_dialog()
 		2:  # Panel Properties
 			print("Panel properties (not yet implemented)")
 
@@ -100,23 +106,81 @@ func _show_add_widget_dialog():
 
 func _on_add_widget_selected(id: int, popup: PopupMenu):
 	"""Handle widget addition"""
+	# Calculate insertion index based on click position
+	var insert_index = _calculate_widget_insertion_index(last_click_position)
+
 	match id:
 		0:  # Mode Switcher
 			var widget = Control.new()
 			widget.set_script(load("res://shell/scripts/widgets/mode_switcher_widget.gd"))
-			add_widget(widget)
+			add_widget(widget, insert_index)
 		1:  # App Launcher
 			var widget = Control.new()
 			widget.set_script(load("res://shell/scripts/widgets/app_launcher_widget.gd"))
-			add_widget(widget)
+			add_widget(widget, insert_index)
 		2:  # Taskbar
 			var widget = Control.new()
 			widget.set_script(load("res://shell/scripts/widgets/taskbar_widget.gd"))
-			add_widget(widget)
+			add_widget(widget, insert_index)
 		3:  # Cancel
 			pass
 
 	popup.queue_free()
+
+func _show_add_panel_dialog():
+	"""Show dialog to add a new panel"""
+	var popup = PopupMenu.new()
+	popup.add_item("Top Panel", 0)
+	popup.add_item("Bottom Panel", 1)
+	popup.add_item("Left Panel", 2)
+	popup.add_item("Right Panel", 3)
+	popup.add_separator()
+	popup.add_item("Cancel", 4)
+
+	add_child(popup)
+	popup.position = Vector2i(get_global_mouse_position())
+	popup.popup()
+	popup.id_pressed.connect(_on_add_panel_selected.bind(popup))
+
+func _on_add_panel_selected(id: int, popup: PopupMenu):
+	"""Handle panel addition"""
+	if id >= 0 and id <= 3:
+		# Get panel manager
+		var panel_manager = get_node_or_null("/root/Main/PanelManager")
+		if panel_manager and panel_manager.has_method("create_panel"):
+			panel_manager.create_panel(id)  # Pass position: 0=TOP, 1=BOTTOM, 2=LEFT, 3=RIGHT
+			print("Created new panel at position: ", ["TOP", "BOTTOM", "LEFT", "RIGHT"][id])
+		else:
+			print("PanelManager not found or doesn't support create_panel")
+
+	popup.queue_free()
+
+func _calculate_widget_insertion_index(click_pos: Vector2) -> int:
+	"""Calculate where to insert a widget based on click position"""
+	if widgets.size() == 0:
+		return 0
+
+	# Convert click position to local coordinates
+	var local_pos = widget_container.to_local(click_pos)
+
+	# For horizontal panels, use X position
+	if panel_position == PanelPosition.TOP or panel_position == PanelPosition.BOTTOM:
+		var cumulative_width = 0.0
+		for i in range(widgets.size()):
+			var widget = widgets[i]
+			cumulative_width += widget.size.x
+			if local_pos.x < cumulative_width:
+				return i
+		return widgets.size()  # Append to end
+	else:
+		# For vertical panels, use Y position
+		var cumulative_height = 0.0
+		for i in range(widgets.size()):
+			var widget = widgets[i]
+			cumulative_height += widget.size.y
+			if local_pos.y < cumulative_height:
+				return i
+		return widgets.size()  # Append to end
 
 func _setup_panel():
 	"""Setup panel anchors and size based on position"""
@@ -204,17 +268,24 @@ func _create_widget_container():
 		PanelAlignment.STRETCH:
 			widget_container.alignment = BoxContainer.ALIGNMENT_BEGIN
 
-func add_widget(widget: Control):
-	"""Add a widget to the panel"""
+func add_widget(widget: Control, at_index: int = -1):
+	"""Add a widget to the panel at the specified index (-1 = append)"""
 	if widget in widgets:
 		push_warning("Widget already in panel")
 		return
 
-	widgets.append(widget)
-	widget_container.add_child(widget)
-	widget_added.emit(widget)
+	if at_index < 0 or at_index >= widgets.size():
+		# Append to end
+		widgets.append(widget)
+		widget_container.add_child(widget)
+	else:
+		# Insert at specific position
+		widgets.insert(at_index, widget)
+		widget_container.add_child(widget)
+		widget_container.move_child(widget, at_index)
 
-	print("  Added widget: ", widget.name)
+	widget_added.emit(widget)
+	print("  Added widget: ", widget.name, " at index ", at_index if at_index >= 0 else widgets.size() - 1)
 
 func remove_widget(widget: Control):
 	"""Remove a widget from the panel"""
