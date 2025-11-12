@@ -88,6 +88,7 @@ mode_manager_path = NodePath("../ModeManager")
 script = ExtResource("11_panel_manager")
 
 [node name="WindowTaskbar" type="CanvasLayer" parent="."]
+visible = false
 script = ExtResource("8_taskbar")
 compositor_path = NodePath("../X11Compositor")
 filesystem_generator_path = NodePath("../FileSystemGenerator")

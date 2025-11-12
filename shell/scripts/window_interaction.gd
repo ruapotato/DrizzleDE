@@ -106,6 +106,12 @@ func create_mouse_sphere():
 	print("Mouse sphere created and visible")
 
 func _process(delta):
+	# Disable all window interaction in 2D mode (Window2DManager handles it)
+	if mode_manager and mode_manager.is_2d_mode():
+		# Hide mouse sphere
+		if mouse_sphere:
+			mouse_sphere.visible = false
+		return
 	if not camera or not compositor or not compositor.is_initialized():
 		return
 
@@ -615,6 +621,10 @@ func animate_camera_zoom_out(new_distance: float):
 	print("  Camera zooming out to distance: ", new_distance)
 
 func _input(event):
+	# Disable input handling in 2D mode (Window2DManager handles it)
+	if mode_manager and mode_manager.is_2d_mode():
+		return
+
 	# Handle mouse button events
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		# Only act on PRESS, not release

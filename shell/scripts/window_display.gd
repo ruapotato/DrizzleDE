@@ -13,6 +13,7 @@ extends Node3D
 var compositor: Node
 var camera: Camera3D
 var filesystem_generator: Node
+var mode_manager: Node = null
 var window_quads := {}  # Maps window_id -> MeshInstance3D
 var update_timer := 0.0
 var next_z_offset := 0.0  # Z offset for each window to prevent Z-fighting
@@ -47,10 +48,21 @@ func _ready():
 	if not filesystem_generator:
 		push_warning("FileSystemGenerator not found - room-based window tracking disabled")
 
+	# Find mode manager
+	mode_manager = get_node_or_null("/root/Main/ModeManager")
+	if mode_manager:
+		mode_manager.mode_changed.connect(_on_mode_changed)
+
 	print("WindowDisplay ready, connected to compositor: ", compositor.get_display_name())
 
 func _process(delta):
 	if not compositor or not compositor.is_initialized():
+		return
+
+	# In 2D mode, hide all 3D quads (windows shown as 2D by Window2DManager)
+	if mode_manager and mode_manager.is_2d_mode():
+		for quad in window_quads.values():
+			quad.visible = false
 		return
 
 	update_timer += delta
@@ -602,3 +614,13 @@ func organize_windows_3d():
 			quad.visible = false
 
 	print("  Grid organized: ", visible_window_ids.size(), " windows visible")
+
+func _on_mode_changed(new_mode):
+	"""Handle mode changes"""
+	if mode_manager and mode_manager.is_2d_mode():
+		# Hide all 3D quads in 2D mode
+		for quad in window_quads.values():
+			quad.visible = false
+	else:
+		# In 3D mode, organize windows
+		organize_windows_3d()
