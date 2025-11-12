@@ -527,6 +527,16 @@ func check_and_adjust_for_popups():
 
 	for wid in window_ids:
 		var parent_id = compositor.get_parent_window_id(wid)
+
+		# Also check for logical parent (orphan dialogs associated with selected window)
+		var window_display = get_node_or_null("/root/Main/WindowDisplay")
+		if window_display and window_display.get("window_quads"):
+			var window_quads = window_display.window_quads
+			if wid in window_quads:
+				var quad = window_quads[wid]
+				if quad.has_meta("logical_parent_id"):
+					parent_id = quad.get_meta("logical_parent_id")
+
 		# Check if this is a popup of the selected window and is visible/mapped
 		if parent_id == selected_window_id and compositor.is_window_mapped(wid):
 			current_popups.append(wid)

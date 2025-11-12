@@ -203,6 +203,21 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
 	var app_class = compositor.get_window_class(window_id)
 	var window_title = compositor.get_window_title(window_id)
 
+	# Check if this is an orphan dialog (dialog without parent) and associate with selected window
+	var parent_id = compositor.get_parent_window_id(window_id)
+	var is_dialog = compositor.is_window_dialog(window_id)
+
+	if parent_id == -1 and is_dialog:
+		# This is a dialog without a parent - try to associate with currently selected window
+		var window_interaction = get_node_or_null("/root/Main/WindowInteraction")
+		if window_interaction:
+			var selected_window_id = window_interaction.get("selected_window_id")
+			if selected_window_id != null and selected_window_id != -1:
+				print("  Orphan dialog detected - associating with selected window ", selected_window_id)
+				# We can't modify the X11 parent_id property, but we can position it as a popup
+				# Store the "logical parent" in metadata for positioning purposes
+				parent_id = selected_window_id  # Use for positioning logic below
+
 	# Calculate spawn position based on application grouping
 	var spawn_pos = get_spawn_position(window_id, app_class)
 
@@ -221,7 +236,7 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
 	material.cull_mode = BaseMaterial3D.CULL_DISABLED  # Render from both sides
 
 	# Check if this is a popup window - give it a colored border for visibility
-	var parent_id = compositor.get_parent_window_id(window_id)
+	# (parent_id already determined above, including logical parents for orphan dialogs)
 	if parent_id != -1:
 		# Popup window - add bright border to make it very visible
 		material.albedo_color = Color(1, 1, 0.5, 1)  # Slight yellow tint
@@ -248,6 +263,12 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
 	quad.set_meta("window_id", window_id)
 	quad.set_meta("app_class", app_class)
 	static_body.set_meta("window_id", window_id)
+
+	# Store logical parent for orphan dialogs (dialogs that don't have WM_TRANSIENT_FOR set)
+	# This allows window_interaction to treat them as popups
+	if parent_id != -1 and compositor.get_parent_window_id(window_id) == -1:
+		quad.set_meta("logical_parent_id", parent_id)
+		print("  Stored logical parent ", parent_id, " for orphan dialog ", window_id)
 
 	# Store current room path for room-based filtering
 	if filesystem_generator and filesystem_generator.current_room:
