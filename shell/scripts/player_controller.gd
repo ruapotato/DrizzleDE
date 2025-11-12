@@ -22,8 +22,8 @@ func _ready():
 	if not camera:
 		push_error("Player controller requires a Camera3D child node named 'Camera'")
 
-	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-	_mouse_captured = true
+	# Don't capture mouse on startup - mode_manager will control this
+	_mouse_captured = false
 
 	# Find inventory menu
 	inventory_menu = get_node_or_null("/root/Main/InventoryMenu")
@@ -65,17 +65,7 @@ func _input(event):
 			camera.rotation.x -= event.relative.y * mouse_sensitivity
 			camera.rotation.x = clamp(camera.rotation.x, -PI/2, PI/2)
 
-	if event.is_action_pressed("ui_cancel"):
-		# Don't handle ESC here if in build mode - let building system handle it
-		if building_system and building_system.build_mode:
-			return
-
-		if _mouse_captured:
-			Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
-			_mouse_captured = false
-		else:
-			Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
-			_mouse_captured = true
+	# ESC handling removed - mode_manager now controls mode switching
 
 func _physics_process(delta):
 	# Don't move if in interaction mode (window selected)
@@ -92,11 +82,6 @@ func _physics_process(delta):
 	var building_ui = get_node_or_null("/root/Main/BuildingUI")
 	if building_ui and building_ui.visible:
 		return
-
-	# Sync mouse capture state (but respect user's ESC toggle)
-	# Only recapture if we WANT it captured (_mouse_captured = true)
-	if _mouse_captured and Input.get_mouse_mode() != Input.MOUSE_MODE_CAPTURED:
-		Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
 
 	# Add gravity
 	if not is_on_floor():
@@ -132,3 +117,7 @@ func set_interaction_mode(enabled: bool):
 		print("Player: Interaction mode enabled (gravity/movement disabled)")
 	else:
 		print("Player: Interaction mode disabled (gravity/movement restored)")
+
+func set_mouse_captured(captured: bool):
+	"""Called by mode_manager to sync mouse capture state"""
+	_mouse_captured = captured

@@ -191,7 +191,7 @@ func _on_window_focused(window_id: int):
 
 	# Focus the X11 window
 	if compositor:
-		compositor.focus_window(window_id)
+		compositor.set_window_focus(window_id)
 
 func _on_window_closed(window_id: int):
 	"""Handle window close request"""
@@ -309,7 +309,7 @@ func focus_window(window_id: int):
 
 	# Focus in X11
 	if compositor:
-		compositor.focus_window(window_id)
+		compositor.set_window_focus(window_id)
 
 func minimize_window(window_id: int):
 	"""Minimize a specific window"""

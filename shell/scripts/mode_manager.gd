@@ -66,6 +66,8 @@ func switch_to_3d_mode():
 	if player_controller:
 		player_controller.set_physics_process(true)
 		player_controller.set_process_input(true)
+		# Sync mouse capture state
+		player_controller.set_mouse_captured(true)
 
 	# Capture mouse for FPS controls
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
@@ -100,6 +102,8 @@ func switch_to_2d_mode():
 	if player_controller:
 		player_controller.set_physics_process(false)
 		player_controller.set_process_input(false)
+		# Sync mouse capture state
+		player_controller.set_mouse_captured(false)
 
 	# Restore windows to 2D positions
 	if window_2d_manager and window_2d_states.size() > 0:
