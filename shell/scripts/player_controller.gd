@@ -14,6 +14,7 @@ var _mouse_captured := false
 var inventory_menu: Node = null
 var building_system: Node = null
 var window_interaction: Node = null
+var in_interaction_mode := false  # Disables gravity and movement when true
 
 func _ready():
 	# Find camera child
@@ -34,6 +35,10 @@ func _ready():
 	window_interaction = get_node_or_null("/root/Main/WindowInteraction")
 
 func _input(event):
+	# Don't process camera input when in interaction mode (window selected)
+	if in_interaction_mode:
+		return
+
 	# Don't process camera input when inventory menu is open
 	if inventory_menu and inventory_menu.get("menu_visible"):
 		# Ensure mouse is visible
@@ -73,6 +78,12 @@ func _input(event):
 			_mouse_captured = true
 
 func _physics_process(delta):
+	# Don't move if in interaction mode (window selected)
+	if in_interaction_mode:
+		# Freeze in place, no gravity or movement
+		velocity = Vector3.ZERO
+		return
+
 	# Don't move if inventory menu is open
 	if inventory_menu and inventory_menu.get("menu_visible"):
 		return
@@ -116,3 +127,10 @@ func _physics_process(delta):
 		velocity.z = move_toward(velocity.z, 0, speed)
 
 	move_and_slide()
+
+func set_interaction_mode(enabled: bool):
+	in_interaction_mode = enabled
+	if enabled:
+		print("Player: Interaction mode enabled (gravity/movement disabled)")
+	else:
+		print("Player: Interaction mode disabled (gravity/movement restored)")

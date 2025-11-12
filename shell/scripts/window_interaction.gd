@@ -12,9 +12,14 @@ enum WindowState { NONE, HOVERED, SELECTED }
 @export var camera_path: NodePath
 @export var compositor_path: NodePath
 @export var raycast_distance := 100.0
-@export var hover_delay := 0.5  # Seconds to hover before can select
+@export var hover_delay := 999.0  # Disabled - click only to select
 @export var hover_switch_delay := 0.1  # Minimum time before switching hover to different window
 @export var escape_key := KEY_ESCAPE
+
+# Focus mode settings
+@export var focus_distance := 2.0  # Distance from camera when focused
+@export var focus_scale_multiplier := 1.5  # Scale up windows when focused
+@export var focus_animation_duration := 0.3  # Seconds for smooth animation
 
 var camera: Camera3D
 var compositor: Node
@@ -37,6 +42,11 @@ var mouse_sphere: MeshInstance3D = null
 var click_tween: Tween = null
 var last_raycast_hit := Vector3.ZERO
 var last_raycast_hit_valid := false
+
+# Focus mode animation
+var focus_tween: Tween = null
+var original_camera_transform := {}  # Stores camera transform for restoration
+var in_2d_mode := false  # Track if we're in 2D cursor mode
 
 func _ready():
 	if camera_path:
@@ -97,6 +107,11 @@ func _process(delta):
 			deselect_window()
 			# Don't return here - continue with raycast to potentially select parent/new window
 
+	# In 2D mode, use screen coordinates for mouse tracking
+	if in_2d_mode and current_state == WindowState.SELECTED and selected_window_quad:
+		update_2d_mouse_position()
+		return  # Skip raycasting when in 2D mode
+
 	# Raycast from camera center
 	var from = camera.global_position
 	var to = from - camera.global_transform.basis.z * raycast_distance
@@ -127,6 +142,11 @@ func _process(delta):
 
 		# Debug what we hit
 		if collider is StaticBody3D:
+			# Check if this is the exit button
+			if collider.has_meta("is_exit_button"):
+				handle_exit_button_hit(collider)
+				return
+
 			if collider.has_meta("window_id"):
 				var window_id = collider.get_meta("window_id")
 				var quad = collider.get_parent() as MeshInstance3D
@@ -145,7 +165,8 @@ func _process(delta):
 		mouse_sphere.global_position = from + (-camera.global_transform.basis.z * 3.0)
 		mouse_sphere.visible = true
 
-	# No window hit - clear hover AND selection (auto-deselect when looking away)
+	# No window hit - clear hover only (NOT selection)
+	# When SELECTED, only ESC or exit button should deselect, not looking away
 	# But DON'T deselect if we just switched to parent window (give it one frame)
 	if just_switched_to_parent:
 		just_switched_to_parent = false
@@ -154,14 +175,32 @@ func _process(delta):
 	# Clear file hover
 	clear_file_hover()
 
+	# Clear exit button hover
+	clear_exit_button_hover()
+
 	if current_state == WindowState.HOVERED:
 		clear_hover()
-	elif current_state == WindowState.SELECTED:
-		deselect_window()
+	# Don't auto-deselect when SELECTED - only ESC or exit button should deselect
+
+func handle_exit_button_hit(button_collider: StaticBody3D):
+	# User is looking at the exit button - highlight it
+	var exit_button = button_collider.get_parent()
+	if exit_button and exit_button.material_override:
+		var mat = exit_button.material_override as StandardMaterial3D
+		if mat:
+			# Brighten button on hover
+			mat.albedo_color = Color(1.0, 0.3, 0.3, 1.0)
+			mat.emission = Color(1.0, 0.3, 0.3)
+
+	# Store hovered button for click detection
+	set_meta("hovered_exit_button", button_collider)
 
 func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Vector3, delta: float):
 	# Clear file hover when looking at window
 	clear_file_hover()
+
+	# Clear exit button hover when looking at window (not button)
+	clear_exit_button_hover()
 
 	# Skip unmapped (closed) windows - don't allow hover/selection
 	if not compositor.is_window_mapped(window_id):
@@ -257,12 +296,10 @@ func handle_window_raycast_hit(window_id: int, quad: MeshInstance3D, hit_pos: Ve
 					select_window(window_id, quad)
 
 		WindowState.SELECTED:
-			# If looking at a different window, auto-deselect and start hovering the new one
-			if window_id != selected_window_id:
-				print("Looking at different window - auto-deselecting")
-				deselect_window()
-				start_hover(window_id, quad)
-			# Otherwise just update mouse position (already handled above)
+			# When selected, stay locked on that window
+			# Only ESC or exit button should deselect
+			# Update mouse position (already handled above in forward mouse motion section)
+			pass
 
 func start_hover(window_id: int, quad: MeshInstance3D):
 	current_state = WindowState.HOVERED
@@ -323,6 +360,12 @@ func select_window(window_id: int, quad: MeshInstance3D):
 	# Add selection border/glow
 	add_selection_glow(quad)
 
+	# Add title bar with exit button
+	add_title_bar(quad, window_id)
+
+	# Animate window to focus mode
+	animate_window_to_focus(quad, window_id)
+
 	var window_title = compositor.get_window_title(window_id)
 	print("╔═══════════════════════════════════════╗")
 	print("║ WINDOW SELECTED!                      ║")
@@ -335,6 +378,9 @@ func select_window(window_id: int, quad: MeshInstance3D):
 func deselect_window():
 	if selected_window_quad:
 		remove_selection_glow(selected_window_quad)
+		remove_title_bar(selected_window_quad)
+		# Restore camera to 3D mode
+		restore_camera_from_focus(selected_window_id)
 
 	# Release all keys to prevent stuck key states
 	# This ensures no keys remain "pressed" when switching between windows or deselecting
@@ -434,6 +480,19 @@ func clear_file_hover():
 				glow.queue_free()
 		remove_meta("hovered_file_cube")
 
+func clear_exit_button_hover():
+	if has_meta("hovered_exit_button"):
+		var button = get_meta("hovered_exit_button")
+		if button and is_instance_valid(button):
+			var exit_button = button.get_parent()
+			if exit_button and exit_button.material_override:
+				var mat = exit_button.material_override as StandardMaterial3D
+				if mat:
+					# Restore normal button color
+					mat.albedo_color = Color(0.8, 0.2, 0.2, 1.0)
+					mat.emission = Color(0.8, 0.2, 0.2)
+		remove_meta("hovered_exit_button")
+
 
 func find_window_quad(window_id: int) -> MeshInstance3D:
 	# Search the WindowDisplay node for the quad
@@ -468,6 +527,17 @@ func _input(event):
 
 		# Mouse button PRESSED
 		print_debug("Mouse click PRESSED - State: ", ["NONE", "HOVERED", "SELECTED"][current_state])
+
+		# Check for exit button click (highest priority when window is selected)
+		if has_meta("hovered_exit_button"):
+			var button = get_meta("hovered_exit_button")
+			if button and is_instance_valid(button):
+				print("Exit button clicked - deselecting window")
+				deselect_window()
+				remove_meta("hovered_exit_button")
+				pulse_click()
+				get_viewport().set_input_as_handled()
+				return
 
 		# Check for file cube click
 		if has_meta("hovered_file_cube"):
@@ -563,6 +633,155 @@ func pulse_click():
 	click_tween.tween_property(mouse_sphere, "scale", Vector3(2.0, 2.0, 2.0), 0.1)
 	click_tween.tween_property(mouse_sphere, "scale", Vector3(1.0, 1.0, 1.0), 0.2)
 
+## Focus mode animation
+
+func animate_window_to_focus(quad: MeshInstance3D, window_id: int):
+	if not camera:
+		return
+
+	# Store original camera transform for restoration
+	original_camera_transform[window_id] = {
+		"position": camera.global_position,
+		"rotation": camera.global_rotation
+	}
+
+	# After billboarding, window's -Z points away from camera (toward window back)
+	# So window's +Z points toward camera (the front face of the window)
+	# We want to position camera on the FRONT side, so move along +Z
+	var window_front = quad.global_transform.basis.z
+	var target_position = quad.global_position + window_front * focus_distance
+
+	# First move camera to position without rotation
+	if focus_tween:
+		focus_tween.kill()
+
+	focus_tween = create_tween()
+	focus_tween.set_ease(Tween.EASE_OUT)
+	focus_tween.set_trans(Tween.TRANS_CUBIC)
+
+	# Animate position
+	focus_tween.tween_property(camera, "global_position", target_position, focus_animation_duration)
+
+	# After position animation, use look_at to face the window
+	focus_tween.tween_callback(func():
+		camera.look_at(quad.global_position, Vector3.UP)
+		print("  Camera now looking at window at ", quad.global_position)
+		print("  Camera position: ", camera.global_position)
+		print("  Camera rotation: ", camera.global_rotation)
+	)
+
+	# Wait for animation to finish, then switch to 2D mode
+	focus_tween.finished.connect(func(): enable_2d_mode())
+
+	# Disable player gravity and movement
+	var player = camera.get_parent()
+	if player and player.has_method("set_interaction_mode"):
+		player.set_interaction_mode(true)
+
+	print("  Animating camera to window: distance=", focus_distance)
+	print("  Target position: ", target_position)
+	print("  Window position: ", quad.global_position)
+
+func restore_camera_from_focus(window_id: int):
+	if window_id not in original_camera_transform or not camera:
+		return
+
+	var original = original_camera_transform[window_id]
+
+	# Disable 2D mode first
+	disable_2d_mode()
+
+	# Animate camera back to original transform
+	if focus_tween:
+		focus_tween.kill()
+
+	focus_tween = create_tween()
+	focus_tween.set_parallel(true)
+	focus_tween.set_ease(Tween.EASE_IN_OUT)
+	focus_tween.set_trans(Tween.TRANS_CUBIC)
+
+	focus_tween.tween_property(camera, "global_position", original.position, focus_animation_duration)
+	focus_tween.tween_property(camera, "global_rotation", original.rotation, focus_animation_duration)
+
+	# Re-enable player gravity and movement
+	var player = camera.get_parent()
+	if player and player.has_method("set_interaction_mode"):
+		player.set_interaction_mode(false)
+
+	# Clean up stored transform
+	original_camera_transform.erase(window_id)
+
+	print("  Restoring camera to 3D mode")
+
+func enable_2d_mode():
+	in_2d_mode = true
+	Input.set_mouse_mode(Input.MOUSE_MODE_VISIBLE)
+	# Hide mouse sphere in 2D mode (we use native cursor)
+	if mouse_sphere:
+		mouse_sphere.visible = false
+	print("  Switched to 2D cursor mode")
+
+func disable_2d_mode():
+	in_2d_mode = false
+	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+	# Show mouse sphere in 3D mode
+	if mouse_sphere:
+		mouse_sphere.visible = true
+	print("  Switched to 3D camera mode")
+
+func update_2d_mouse_position():
+	# Get mouse position in viewport coordinates
+	var mouse_pos = get_viewport().get_mouse_position()
+	var viewport_size = get_viewport().get_visible_rect().size
+
+	# Project mouse to 3D space
+	var from = camera.project_ray_origin(mouse_pos)
+	var to = from + camera.project_ray_normal(mouse_pos) * raycast_distance
+
+	var space_state = get_world_3d().direct_space_state
+	var query = PhysicsRayQueryParameters3D.create(from, to)
+	query.collide_with_areas = false
+	query.collide_with_bodies = true
+
+	var result = space_state.intersect_ray(query)
+
+	if result and result.collider is StaticBody3D:
+		var collider = result.collider
+
+		# Check if this is the exit button
+		if collider.has_meta("is_exit_button"):
+			handle_exit_button_hit(collider)
+			return
+
+		# Check if we hit the selected window
+		if collider.has_meta("window_id"):
+			var window_id = collider.get_meta("window_id")
+			if window_id == selected_window_id and selected_window_quad:
+				# Calculate window-local coordinates
+				var local_pos = selected_window_quad.global_transform.affine_inverse() * result.position
+				var window_size = compositor.get_window_size(window_id)
+
+				if window_size.x > 0 and window_size.y > 0:
+					var tex_x = (local_pos.x + 0.5) * window_size.x
+					var tex_y = (-local_pos.y + 0.5) * window_size.y
+					window_mouse_pos = Vector2(
+						clamp(tex_x, 0, window_size.x - 1),
+						clamp(tex_y, 0, window_size.y - 1)
+					)
+
+					# Send mouse motion to X11
+					compositor.send_mouse_motion(
+						window_id,
+						int(window_mouse_pos.x),
+						int(window_mouse_pos.y)
+					)
+			else:
+				# Not hitting the selected window, clear exit button hover
+				clear_exit_button_hover()
+	else:
+		# Not hitting anything, clear exit button hover
+		clear_exit_button_hover()
+
 ## Visual feedback
 
 func add_hover_highlight(quad: MeshInstance3D):
@@ -631,6 +850,97 @@ func remove_selection_glow(quad: MeshInstance3D):
 		var mat = quad.material_override as StandardMaterial3D
 		if quad.has_meta("original_albedo"):
 			mat.albedo_color = quad.get_meta("original_albedo")
+
+func add_title_bar(quad: MeshInstance3D, window_id: int):
+	# Create a title bar container above the window
+	var title_bar = Node3D.new()
+	title_bar.name = "TitleBar"
+	quad.add_child(title_bar)
+
+	# Position above the window (in local space, Y+ is up)
+	title_bar.position = Vector3(0, 0.55, -0.01)
+
+	# Title background bar
+	var bg_mesh = MeshInstance3D.new()
+	title_bar.add_child(bg_mesh)
+
+	var bar_quad = QuadMesh.new()
+	bar_quad.size = Vector2(1.0, 0.08)  # Full width, thin height
+	bg_mesh.mesh = bar_quad
+
+	var bg_mat = StandardMaterial3D.new()
+	bg_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	bg_mat.albedo_color = Color(0.2, 0.2, 0.25, 0.95)
+	bg_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	bg_mesh.material_override = bg_mat
+
+	# Title text label
+	var title_label = Label3D.new()
+	title_bar.add_child(title_label)
+	title_label.text = compositor.get_window_title(window_id)
+	title_label.font_size = 16
+	title_label.outline_size = 2
+	title_label.modulate = Color(1, 1, 1, 1)
+	title_label.position = Vector3(-0.45, 0, -0.01)  # Left side
+	title_label.pixel_size = 0.0005
+	title_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED  # Don't billboard, follow window
+	title_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_LEFT
+
+	# Exit button on the right
+	var exit_button = MeshInstance3D.new()
+	title_bar.add_child(exit_button)
+	exit_button.name = "ExitButton"
+
+	var button_quad = QuadMesh.new()
+	button_quad.size = Vector2(0.08, 0.08)  # Square button
+	exit_button.mesh = button_quad
+
+	var button_mat = StandardMaterial3D.new()
+	button_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	button_mat.albedo_color = Color(0.8, 0.2, 0.2, 1.0)  # Red button
+	button_mat.emission_enabled = true
+	button_mat.emission = Color(0.8, 0.2, 0.2)
+	button_mat.emission_energy_multiplier = 1.5
+	exit_button.material_override = button_mat
+
+	exit_button.position = Vector3(0.46, 0, -0.01)  # Right side
+
+	# Add collision for exit button
+	var button_body = StaticBody3D.new()
+	button_body.name = "ExitButtonBody"
+	exit_button.add_child(button_body)
+
+	var button_collision = CollisionShape3D.new()
+	button_body.add_child(button_collision)
+
+	var button_shape = BoxShape3D.new()
+	button_shape.size = Vector3(0.08, 0.08, 0.01)
+	button_collision.shape = button_shape
+
+	# Store metadata for exit button detection
+	button_body.set_meta("is_exit_button", true)
+	button_body.set_meta("window_id", window_id)
+
+	# Add "X" label on button
+	var x_label = Label3D.new()
+	exit_button.add_child(x_label)
+	x_label.text = "✕"
+	x_label.font_size = 24
+	x_label.outline_size = 3
+	x_label.modulate = Color(1, 1, 1, 1)
+	x_label.position = Vector3(0, 0, -0.01)
+	x_label.pixel_size = 0.0004
+	x_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	x_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	x_label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+
+	print("  Added title bar with exit button")
+
+func remove_title_bar(quad: MeshInstance3D):
+	var title_bar = quad.get_node_or_null("TitleBar")
+	if title_bar:
+		title_bar.queue_free()
+		print("  Removed title bar")
 
 
 func launch_desktop_file(desktop_file_path: String):

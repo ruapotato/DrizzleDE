@@ -75,6 +75,12 @@ func _process(delta):
 	if filesystem_generator and filesystem_generator.current_room:
 		current_room_path = filesystem_generator.current_room.directory_path
 
+	# Get window interaction state to check which window is selected
+	var window_interaction = get_node_or_null("/root/Main/WindowInteraction")
+	var selected_window_id = -1
+	if window_interaction:
+		selected_window_id = window_interaction.get("selected_window_id")
+
 	# Create or update quads for each window
 	for window_id in window_ids:
 		var quad: MeshInstance3D
@@ -103,6 +109,18 @@ func _process(delta):
 		# Only update texture for mapped windows in current room
 		if is_mapped and in_current_room:
 			update_window_texture(quad, window_id)
+
+			# Billboard behavior: Make idle windows face the camera
+			# Skip billboarding for selected windows (interaction system handles them)
+			# Skip billboarding for popup windows (they follow parent orientation)
+			var parent_id = compositor.get_parent_window_id(window_id)
+			var is_selected = (window_id == selected_window_id)
+
+			if not is_selected and parent_id == -1 and camera:
+				# Billboard: make window face camera (Y rotation only)
+				var to_camera = camera.global_position - quad.global_position
+				var look_angle = atan2(to_camera.x, to_camera.z)
+				quad.rotation.y = look_angle
 
 func create_window_quad(window_id: int, index: int) -> MeshInstance3D:
 	var quad = MeshInstance3D.new()
