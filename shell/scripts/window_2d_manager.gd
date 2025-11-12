@@ -168,7 +168,7 @@ func update_window_2d(window_id: int):
 
 func get_spawn_position_2d(window_size: Vector2i) -> Vector2:
 	"""Calculate spawn position for new window"""
-	var viewport_size = get_viewport_rect().size
+	var viewport_size = get_viewport().get_visible_rect().size
 
 	# Center the window
 	var center_x = (viewport_size.x - window_size.x) / 2.0

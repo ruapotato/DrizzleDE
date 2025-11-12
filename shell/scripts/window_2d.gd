@@ -363,7 +363,7 @@ func _on_maximize_pressed():
 		restore_size = size
 
 		# Fill the entire viewport (will be adjusted by Window2DManager)
-		var viewport_size = get_viewport_rect().size
+		var viewport_size = get_viewport().get_visible_rect().size
 		position = Vector2.ZERO
 		size = viewport_size
 
@@ -404,7 +404,7 @@ func set_fullscreen(enabled: bool):
 
 	if enabled:
 		# Fill entire viewport
-		var viewport_size = get_viewport_rect().size
+		var viewport_size = get_viewport().get_visible_rect().size
 		position = Vector2.ZERO
 		size = viewport_size
 		content_container.offset_top = 0
