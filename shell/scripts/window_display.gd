@@ -219,7 +219,8 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
 				parent_id = selected_window_id  # Use for positioning logic below
 
 	# Calculate spawn position based on application grouping
-	var spawn_pos = get_spawn_position(window_id, app_class)
+	# Pass the parent_id (which may be a logical parent for orphan dialogs)
+	var spawn_pos = get_spawn_position(window_id, app_class, parent_id)
 
 	var quad = MeshInstance3D.new()
 	add_child(quad)
@@ -308,9 +309,10 @@ func create_window_quad_spatial(window_id: int) -> MeshInstance3D:
 
 	return quad
 
-func get_spawn_position(window_id: int, app_class: String) -> Vector3:
+func get_spawn_position(window_id: int, app_class: String, logical_parent_id: int = -1) -> Vector3:
 	# Check if this is a popup window (has a parent)
-	var parent_id = compositor.get_parent_window_id(window_id)
+	# Use logical_parent_id if provided (for orphan dialogs), otherwise get from compositor
+	var parent_id = logical_parent_id if logical_parent_id != -1 else compositor.get_parent_window_id(window_id)
 	if parent_id != -1 and parent_id in window_quads:
 		# This is a popup - position it relative to the parent window using actual X11 coordinates
 		var parent_quad = window_quads[parent_id]
