@@ -50,6 +50,7 @@ void X11Compositor::_bind_methods() {
     ClassDB::bind_method(D_METHOD("get_parent_window_id", "window_id"), &X11Compositor::get_parent_window_id);
     ClassDB::bind_method(D_METHOD("get_window_position", "window_id"), &X11Compositor::get_window_position);
     ClassDB::bind_method(D_METHOD("is_window_mapped", "window_id"), &X11Compositor::is_window_mapped);
+    ClassDB::bind_method(D_METHOD("is_window_dialog", "window_id"), &X11Compositor::is_window_dialog);
 
     // Input handling
     ClassDB::bind_method(D_METHOD("send_mouse_button", "window_id", "button", "pressed", "x", "y"), &X11Compositor::send_mouse_button);
@@ -395,6 +396,7 @@ void X11Compositor::add_window(X11WindowHandle xwin) {
     window->has_image = false;
     window->pid = -1;
     window->parent_window_id = -1;  // Default: no parent
+    window->is_dialog = false;      // Default: not a dialog
 
     // Get window title (WM_NAME)
     char *window_name = nullptr;
@@ -443,6 +445,35 @@ void X11Compositor::add_window(X11WindowHandle xwin) {
             if (parent_it != xwindow_to_id.end()) {
                 window->parent_window_id = parent_it->second;
                 UtilityFunctions::print("  Window is transient for window ", window->parent_window_id);
+            }
+        }
+        if (prop) XFree(prop);
+    }
+
+    // Check window type (_NET_WM_WINDOW_TYPE) to identify dialogs/menus
+    // even if WM_TRANSIENT_FOR isn't set
+    Atom window_type_atom = XInternAtom(display, "_NET_WM_WINDOW_TYPE", False);
+    Atom dialog_atom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_DIALOG", False);
+    Atom utility_atom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_UTILITY", False);
+    Atom menu_atom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_MENU", False);
+    Atom popup_menu_atom = XInternAtom(display, "_NET_WM_WINDOW_TYPE_POPUP_MENU", False);
+
+    prop = nullptr;
+    if (XGetWindowProperty(display, xwin, window_type_atom, 0, 32, False, XA_ATOM,
+                          &actual_type, &actual_format, &nitems, &bytes_after, &prop) == Success) {
+        if (prop && nitems > 0) {
+            Atom *types = (Atom*)prop;
+            for (unsigned long i = 0; i < nitems; i++) {
+                if (types[i] == dialog_atom) {
+                    window->is_dialog = true;
+                    UtilityFunctions::print("  Window type: DIALOG");
+                } else if (types[i] == utility_atom) {
+                    window->is_dialog = true;
+                    UtilityFunctions::print("  Window type: UTILITY");
+                } else if (types[i] == menu_atom || types[i] == popup_menu_atom) {
+                    window->is_dialog = true;
+                    UtilityFunctions::print("  Window type: MENU/POPUP_MENU");
+                }
             }
         }
         if (prop) XFree(prop);
@@ -786,6 +817,14 @@ bool X11Compositor::is_window_mapped(int window_id) {
         return false;  // Window doesn't exist
     }
     return it->second->mapped;
+}
+
+bool X11Compositor::is_window_dialog(int window_id) {
+    auto it = windows.find(window_id);
+    if (it == windows.end()) {
+        return false;  // Window doesn't exist
+    }
+    return it->second->is_dialog;
 }
 
 // Input handling methods

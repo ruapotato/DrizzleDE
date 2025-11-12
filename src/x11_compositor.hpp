@@ -39,6 +39,7 @@ struct X11Window {
     String wm_name;                  // Window title
     int pid;                         // Process ID
     int parent_window_id;            // Parent window ID (-1 if no parent)
+    bool is_dialog;                  // Is this a dialog/menu/utility window
 };
 
 class X11Compositor : public Node {
@@ -116,6 +117,7 @@ public:
     int get_parent_window_id(int window_id);
     Vector2i get_window_position(int window_id);
     bool is_window_mapped(int window_id);
+    bool is_window_dialog(int window_id);
 
     // Input handling
     void send_mouse_button(int window_id, int button, bool pressed, int x, int y);
