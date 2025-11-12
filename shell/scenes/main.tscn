@@ -10,7 +10,7 @@
 [ext_resource type="Script" uid="uid://yhjlxittj1u6" path="res://shell/scripts/window_taskbar.gd" id="8_taskbar"]
 [ext_resource type="Script" path="res://shell/scripts/mode_manager.gd" id="9_mode_manager"]
 [ext_resource type="Script" path="res://shell/scripts/window_2d_manager.gd" id="10_window_2d_manager"]
-[ext_resource type="Script" path="res://shell/scripts/temp_mode_button.gd" id="11_temp_mode_button"]
+[ext_resource type="Script" path="res://shell/scripts/panel_manager.gd" id="11_panel_manager"]
 
 [sub_resource type="ProceduralSkyMaterial" id="ProceduralSkyMaterial_3f4o0"]
 sky_top_color = Color(0.305882, 0.756863, 0.996078, 1)
@@ -84,8 +84,8 @@ script = ExtResource("10_window_2d_manager")
 compositor_path = NodePath("../X11Compositor")
 mode_manager_path = NodePath("../ModeManager")
 
-[node name="TempModeButton" type="CanvasLayer" parent="."]
-script = ExtResource("11_temp_mode_button")
+[node name="PanelManager" type="CanvasLayer" parent="."]
+script = ExtResource("11_panel_manager")
 
 [node name="WindowTaskbar" type="CanvasLayer" parent="."]
 script = ExtResource("8_taskbar")
