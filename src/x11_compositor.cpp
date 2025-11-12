@@ -153,7 +153,7 @@ int X11Compositor::find_available_display() {
 }
 
 bool X11Compositor::launch_xephyr(int disp_num) {
-    UtilityFunctions::print("Launching Xvfb (headless X server) on display :", disp_num);
+    UtilityFunctions::print("Launching Xvfb (headless X server) on display :", disp_num, " with screen size 2560x1440");
 
     pid_t pid = fork();
 
@@ -167,7 +167,8 @@ bool X11Compositor::launch_xephyr(int disp_num) {
         char display_arg[32];
         char screen_arg[64];
         snprintf(display_arg, sizeof(display_arg), ":%d", disp_num);
-        snprintf(screen_arg, sizeof(screen_arg), "1280x720x24");
+        // Use 2560x1440 to accommodate large dialogs (e.g., Save As dialogs)
+        snprintf(screen_arg, sizeof(screen_arg), "2560x1440x24");
 
         // Launch Xvfb with reasonable defaults
         // -ac = disable access control (allow all connections)

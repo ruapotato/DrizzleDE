@@ -813,18 +813,28 @@ func update_2d_mouse_position():
 				var window_size = compositor.get_window_size(window_id)
 
 				if window_size.x > 0 and window_size.y > 0:
-					var tex_x = (local_pos.x + 0.5) * window_size.x
-					var tex_y = (-local_pos.y + 0.5) * window_size.y
+					# Clamp local_pos to visual quad bounds [-0.5, 0.5]
+					# The collision box is 4x4 but the visual quad is smaller, so hits can be outside visual bounds
+					var clamped_local_pos = Vector3(
+						clamp(local_pos.x, -0.5, 0.5),
+						clamp(local_pos.y, -0.5, 0.5),
+						local_pos.z
+					)
+
+					var tex_x = (clamped_local_pos.x + 0.5) * window_size.x
+					var tex_y = (-clamped_local_pos.y + 0.5) * window_size.y
 
 					# Debug for large windows (including dialogs)
 					if window_size.x > 800 or window_size.y > 600:
 						# Check if we're near edges
 						var near_top = tex_y < 50
 						var near_bottom = tex_y > window_size.y - 50
-						if near_top or near_bottom:
+						var was_clamped = (local_pos.x != clamped_local_pos.x or local_pos.y != clamped_local_pos.y)
+						if near_top or near_bottom or was_clamped:
 							print("  EDGE CLICK: size=", window_size, " local_pos=", local_pos,
-								  " tex=", Vector2(tex_x, tex_y), " quad.scale=", hit_quad.scale,
-								  " near_top=", near_top, " near_bottom=", near_bottom)
+								  " clamped=", clamped_local_pos, " tex=", Vector2(tex_x, tex_y),
+								  " quad.scale=", hit_quad.scale, " near_top=", near_top,
+								  " near_bottom=", near_bottom, " was_clamped=", was_clamped)
 
 					window_mouse_pos = Vector2(
 						clamp(tex_x, 0, window_size.x - 1),
