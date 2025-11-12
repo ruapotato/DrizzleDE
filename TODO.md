@@ -45,9 +45,12 @@ Transform DrizzleDE into a usable daily-driver desktop environment with dual mod
 - [x] WidgetBase class (base for all widgets)
 - [x] ModeSwitcherWidget (replaces temp button)
 - [x] PanelManager (manages panels and widgets)
+- [x] AppLauncherWidget (launch .desktop apps)
+- [x] TaskbarWidget (window management buttons)
+- [x] Phase 3: Panel System - FUNCTIONAL
 
 ### 🚧 In Progress
-Phase 3: Panel System (core infrastructure done)
+Phase 4: Configuration & Polish (NEXT)
 
 ## Remaining Implementation Tasks
 
@@ -169,22 +172,32 @@ extends Control
 
 #### 3.3 Implement Core Widgets
 
-**3.3.1 App Launcher Widget**
+**3.3.1 App Launcher Widget** ✅
 **File:** `shell/scripts/widgets/app_launcher_widget.gd`
-- [ ] Button with icon (or "Applications" text)
-- [ ] Click → show menu with all .desktop file apps
-- [ ] Search/filter apps
-- [ ] Launch app on click (using compositor)
+- [x] Button with "Applications" text
+- [x] Click → show menu with all .desktop file apps
+- [x] Launch app on click (using compositor DISPLAY)
+- [x] Parse .desktop files for Name and Exec
+- [x] Filter hidden apps (NoDisplay=true)
+- [x] Alphabetically sorted menu
 
-**3.3.2 Taskbar Widget**
+**Features deferred:**
+- [ ] Search/filter apps (Phase 4)
+- [ ] Icons for apps (Phase 4)
+
+**3.3.2 Taskbar Widget** ✅
 **File:** `shell/scripts/widgets/taskbar_widget.gd`
-- [ ] Show button for each open window
-- [ ] Window title + icon
-- [ ] Click → focus window, bring to front
-- [ ] Right-click → window menu (minimize/maximize/close)
-- [ ] Highlight active window
-- [ ] Group windows by application (optional)
-- [ ] **Movable:** can be placed on any panel
+- [x] Show button for each open window
+- [x] Window title (truncated if long)
+- [x] Click → focus window, bring to front
+- [x] Auto-updates when windows open/close
+- [x] Expands to fill panel space
+
+**Features deferred:**
+- [ ] Window icons (Phase 4)
+- [ ] Right-click menu (minimize/maximize/close) (Phase 4)
+- [ ] Highlight active window (Phase 4)
+- [ ] Group windows by application (Phase 4)
 
 **3.3.3 System Monitor Widget**
 **File:** `shell/scripts/widgets/system_monitor_widget.gd`
@@ -375,8 +388,8 @@ shell/
 ## Current Branch Status
 
 **Branch:** main
-**Last Commit:** (pending) - "Implement Phase 3: Panel System (core infrastructure)"
-**Next Task:** Add more widgets (taskbar, app launcher, etc.)
+**Last Commit:** c247da2 - "Add Taskbar and AppLauncher widgets"
+**Next Task:** Optional polishing or move to Phase 4/5
 
 ## Instructions for Continuing
 
@@ -402,4 +415,4 @@ git log --oneline | grep -i "mode\|window\|panel"
 
 ---
 *Last Updated: 2025-11-12*
-*Status: Phase 2 complete - Ready for Phase 3*
+*Status: Phase 3 complete - Core dual-mode desktop functional*
