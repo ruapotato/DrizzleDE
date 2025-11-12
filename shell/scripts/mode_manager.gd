@@ -36,6 +36,16 @@ func _input(event):
 			switch_to_2d_mode()
 			get_viewport().set_input_as_handled()
 
+	# In 3D mode, clicking should ensure mouse is captured
+	if current_mode == Mode.MODE_3D:
+		if event is InputEventMouseButton:
+			var mb = event as InputEventMouseButton
+			if mb.pressed and mb.button_index == MOUSE_BUTTON_LEFT:
+				# Ensure mouse is captured for camera movement
+				if Input.mouse_mode != Input.MOUSE_MODE_CAPTURED:
+					Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+					print("  Re-captured mouse for 3D mode")
+
 func switch_to_3d_mode():
 	"""Enter 3D navigation mode - walk through files, see window grid"""
 	if current_mode == Mode.MODE_3D:
@@ -55,6 +65,9 @@ func switch_to_3d_mode():
 
 	# Capture mouse for FPS controls
 	Input.set_mouse_mode(Input.MOUSE_MODE_CAPTURED)
+
+	# Force the window to grab focus to ensure input works
+	get_viewport().get_window().grab_focus()
 
 	# Organize windows into 3D grid
 	if window_display and window_display.has_method("organize_windows_3d"):
