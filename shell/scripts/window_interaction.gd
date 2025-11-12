@@ -17,7 +17,9 @@ enum WindowState { NONE, HOVERED, SELECTED }
 @export var escape_key := KEY_ESCAPE
 
 # Focus mode settings
-@export var focus_distance := 2.0  # Distance from camera when focused
+@export var focus_distance_min := 1.0  # Minimum distance from camera
+@export var focus_distance_max := 8.0  # Maximum distance from camera
+@export var focus_padding := 1.2  # Padding factor (1.2 = 20% margin around window)
 @export var focus_scale_multiplier := 1.5  # Scale up windows when focused
 @export var focus_animation_duration := 0.3  # Seconds for smooth animation
 
@@ -647,6 +649,44 @@ func pulse_click():
 
 ## Focus mode animation
 
+func calculate_optimal_focus_distance(quad: MeshInstance3D) -> float:
+	"""Calculate the optimal distance to view a window based on its size"""
+	if not camera:
+		return focus_distance_min
+
+	# Get window dimensions in world units (quad.scale is the actual size)
+	var window_width = quad.scale.x
+	var window_height = quad.scale.y
+
+	# Get camera FOV (default Godot camera is 75 degrees)
+	var fov_deg = camera.fov
+	var fov_rad = deg_to_rad(fov_deg)
+
+	# Calculate distance needed to fit height
+	# visible_height = 2 * distance * tan(fov/2)
+	# distance = (visible_height) / (2 * tan(fov/2))
+	var half_fov = fov_rad / 2.0
+	var distance_for_height = (window_height * focus_padding) / (2.0 * tan(half_fov))
+
+	# Calculate distance needed to fit width (accounting for aspect ratio)
+	# For a 16:9 viewport, horizontal FOV is wider than vertical
+	var viewport = get_viewport()
+	var aspect_ratio = float(viewport.size.x) / float(viewport.size.y)
+	var horizontal_fov = 2.0 * atan(tan(half_fov) * aspect_ratio)
+	var distance_for_width = (window_width * focus_padding) / (2.0 * tan(horizontal_fov / 2.0))
+
+	# Use the larger distance to ensure both dimensions fit
+	var optimal_distance = max(distance_for_height, distance_for_width)
+
+	# Clamp to reasonable bounds
+	optimal_distance = clamp(optimal_distance, focus_distance_min, focus_distance_max)
+
+	print("  Window size: ", window_width, "x", window_height, " world units")
+	print("  Calculated optimal distance: ", optimal_distance)
+
+	return optimal_distance
+
+
 func animate_window_to_focus(quad: MeshInstance3D, window_id: int):
 	if not camera:
 		return
@@ -657,11 +697,14 @@ func animate_window_to_focus(quad: MeshInstance3D, window_id: int):
 		"rotation": camera.global_rotation
 	}
 
+	# Calculate optimal distance based on window size
+	var optimal_distance = calculate_optimal_focus_distance(quad)
+
 	# After billboarding, window's -Z points away from camera (toward window back)
 	# So window's +Z points toward camera (the front face of the window)
 	# We want to position camera on the FRONT side, so move along +Z
 	var window_front = quad.global_transform.basis.z
-	var target_position = quad.global_position + window_front * focus_distance
+	var target_position = quad.global_position + window_front * optimal_distance
 
 	# First move camera to position without rotation
 	if focus_tween:
