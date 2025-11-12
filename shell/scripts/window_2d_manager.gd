@@ -106,9 +106,18 @@ func create_window_2d(window_id: int):
 	var window_title = compositor.get_window_title(window_id)
 	var window_size = compositor.get_window_size(window_id)
 
+	# Limit window size to fit on screen (account for panel)
+	var viewport_size = get_viewport().get_visible_rect().size
+	var panel_height = 40  # Top panel height
+	var max_width = viewport_size.x - 20  # Leave 10px margin on each side
+	var max_height = viewport_size.y - panel_height - 20  # Leave margin and account for panel
+
+	var clamped_width = min(window_size.x, max_width)
+	var clamped_height = min(window_size.y, max_height)
+
 	# Set initial properties
 	window_2d.set_window_title(window_title)
-	window_2d.size = Vector2(window_size.x, window_size.y)
+	window_2d.size = Vector2(clamped_width, clamped_height)
 
 	# Position window (centered or cascaded)
 	window_2d.position = get_spawn_position_2d(window_size)

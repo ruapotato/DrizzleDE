@@ -145,14 +145,16 @@ func _launch_application(exec_cmd: String):
 	var command = parts[0]
 	var args = parts.slice(1)
 
-	# Prepend DISPLAY environment variable
-	args.insert(0, "DISPLAY=" + display)
-	args.insert(0, command)
+	# Build env command: env DISPLAY=:X command arg1 arg2...
+	var env_args = []
+	env_args.append("DISPLAY=" + display)
+	env_args.append(command)
+	env_args.append_array(args)
 
-	print("  Command: env ", " ".join(args))
+	print("  Command: env ", " ".join(env_args))
 
 	# Launch via env to set DISPLAY
-	OS.create_process("env", args)
+	OS.create_process("env", env_args)
 
 func update_widget():
 	"""Rescan desktop files"""

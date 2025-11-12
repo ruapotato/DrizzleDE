@@ -42,6 +42,11 @@ func _create_default_panels():
 	# Wait one frame for panel to initialize
 	await get_tree().process_frame
 
+	# Add mode switcher widget (far left)
+	var mode_switcher = Control.new()
+	mode_switcher.set_script(ModeSwitcherWidget)
+	top_panel.call("add_widget", mode_switcher)
+
 	# Add app launcher widget (left side)
 	var app_launcher = Control.new()
 	app_launcher.set_script(AppLauncherWidget)
@@ -52,12 +57,7 @@ func _create_default_panels():
 	taskbar.set_script(TaskbarWidget)
 	top_panel.call("add_widget", taskbar)
 
-	# Add mode switcher widget (right side)
-	var mode_switcher = Control.new()
-	mode_switcher.set_script(ModeSwitcherWidget)
-	top_panel.call("add_widget", mode_switcher)
-
-	print("  Created top panel with app launcher, taskbar, and mode switcher")
+	print("  Created top panel with mode switcher, app launcher, and taskbar")
 
 func _on_mode_changed(new_mode):
 	"""Hide panels in 3D mode, show in 2D mode"""
