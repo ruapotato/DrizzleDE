@@ -125,6 +125,9 @@ public:
     void send_key_event(int window_id, int keycode, bool pressed);
     void set_window_focus(int window_id);
     void release_all_keys();  // Release all currently pressed keys
+
+    // Window manipulation
+    void resize_window(int window_id, int width, int height);
 };
 
 } // namespace godot

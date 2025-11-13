@@ -58,6 +58,9 @@ void X11Compositor::_bind_methods() {
     ClassDB::bind_method(D_METHOD("send_key_event", "window_id", "keycode", "pressed"), &X11Compositor::send_key_event);
     ClassDB::bind_method(D_METHOD("set_window_focus", "window_id"), &X11Compositor::set_window_focus);
     ClassDB::bind_method(D_METHOD("release_all_keys"), &X11Compositor::release_all_keys);
+
+    // Window manipulation
+    ClassDB::bind_method(D_METHOD("resize_window", "window_id", "width", "height"), &X11Compositor::resize_window);
 }
 
 void X11Compositor::_ready() {
@@ -1166,4 +1169,21 @@ void X11Compositor::cleanup() {
 
     initialized = false;
     UtilityFunctions::print("X11Compositor cleanup complete");
+}
+
+void X11Compositor::resize_window(int window_id, int width, int height) {
+    auto it = windows.find(window_id);
+    if (it == windows.end() || !display) {
+        return;
+    }
+
+    X11Window *window = it->second;
+
+    // Resize the X11 window
+    XResizeWindow(display, window->xwindow, width, height);
+    XFlush(display);
+
+    // Update our cached window size
+    window->width = width;
+    window->height = height;
 }

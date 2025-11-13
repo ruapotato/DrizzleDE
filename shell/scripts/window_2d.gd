@@ -431,6 +431,13 @@ func handle_resize():
 			if new_size.x >= MIN_WINDOW_SIZE.x and new_size.y >= MIN_WINDOW_SIZE.y:
 				size = new_size
 
+	# Resize the actual X11 window to match the content area (size minus title bar)
+	if compositor and window_id >= 0:
+		var content_width = int(size.x)
+		var content_height = int(size.y) - TITLE_BAR_HEIGHT
+		if content_height > 0:
+			compositor.resize_window(window_id, content_width, content_height)
+
 func _on_minimize_pressed():
 	"""Handle minimize button click"""
 	is_minimized = true
