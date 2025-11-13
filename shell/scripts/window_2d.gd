@@ -334,14 +334,27 @@ func _on_title_bar_input(event: InputEvent):
 
 		if mb.button_index == MOUSE_BUTTON_LEFT:
 			if mb.pressed:
-				# Start dragging
-				is_dragging = true
-				drag_offset = get_global_mouse_position() - global_position
-				window_focused.emit(window_id)
-				get_viewport().set_input_as_handled()
+				# Check if this is a popup window - if so, delegate dragging to root window
+				var root_window = _get_root_window()
+				if root_window and root_window != self:
+					# This is a popup - start dragging the root window instead
+					root_window.is_dragging = true
+					root_window.drag_offset = get_global_mouse_position() - root_window.global_position
+					root_window.window_focused.emit(root_window.window_id)
+					get_viewport().set_input_as_handled()
+				else:
+					# Normal window - drag this window
+					is_dragging = true
+					drag_offset = get_global_mouse_position() - global_position
+					window_focused.emit(window_id)
+					get_viewport().set_input_as_handled()
 			else:
-				# Stop dragging
-				is_dragging = false
+				# Stop dragging (check if we're dragging root)
+				var root_window = _get_root_window()
+				if root_window and root_window != self:
+					root_window.is_dragging = false
+				else:
+					is_dragging = false
 				get_viewport().set_input_as_handled()
 
 func _on_resize_handle_input(event: InputEvent, mode: ResizeMode):
@@ -457,6 +470,48 @@ func set_window_title(title: String):
 	"""Update the window title"""
 	if title_label:
 		title_label.text = title
+
+func _get_root_window():
+	"""Find the root (top-level) window by walking up the parent chain"""
+	if not compositor or window_id < 0:
+		return self
+
+	# Get the Window2DManager
+	var window_manager = get_node_or_null("/root/Main/Window2DManager")
+	if not window_manager:
+		return self
+
+	# Walk up the parent chain to find the root window
+	var current_id = window_id
+	var root_id = current_id
+
+	# Limit iterations to prevent infinite loops
+	var max_iterations = 10
+	var iterations = 0
+
+	while iterations < max_iterations:
+		var parent_id = compositor.get_parent_window_id(current_id)
+		if parent_id == -1:
+			# No parent - this is the root
+			break
+
+		# Check if parent exists in window manager
+		if window_manager.has_method("get") and parent_id in window_manager.get("window_2d_nodes"):
+			root_id = parent_id
+			current_id = parent_id
+		else:
+			# Parent doesn't exist in 2D manager - current is root
+			break
+
+		iterations += 1
+
+	# Get the root window node
+	if root_id != window_id and window_manager.has_method("get"):
+		var window_2d_nodes = window_manager.get("window_2d_nodes")
+		if window_2d_nodes and root_id in window_2d_nodes:
+			return window_2d_nodes[root_id]
+
+	return self
 
 func set_fullscreen(enabled: bool):
 	"""Set fullscreen mode (no decorations)"""

@@ -95,11 +95,12 @@ func _show_add_widget_dialog():
 	var popup = PopupMenu.new()
 	popup.add_item("Mode Switcher", 0)
 	popup.add_item("App Launcher", 1)
-	popup.add_item("Taskbar", 2)
-	popup.add_item("Desktop Switcher", 3)
-	popup.add_item("System Monitor", 4)
+	popup.add_item("App Shortcut", 2)
+	popup.add_item("Taskbar", 3)
+	popup.add_item("Desktop Switcher", 4)
+	popup.add_item("System Monitor", 5)
 	popup.add_separator()
-	popup.add_item("Cancel", 5)
+	popup.add_item("Cancel", 6)
 
 	add_child(popup)
 	popup.position = Vector2i(get_global_mouse_position())
@@ -120,19 +121,23 @@ func _on_add_widget_selected(id: int, popup: PopupMenu):
 			var widget = Control.new()
 			widget.set_script(load("res://shell/scripts/widgets/app_launcher_widget.gd"))
 			add_widget(widget, insert_index)
-		2:  # Taskbar
+		2:  # App Shortcut
+			var widget = Control.new()
+			widget.set_script(load("res://shell/scripts/widgets/app_shortcut_widget.gd"))
+			add_widget(widget, insert_index)
+		3:  # Taskbar
 			var widget = Control.new()
 			widget.set_script(load("res://shell/scripts/widgets/taskbar_widget.gd"))
 			add_widget(widget, insert_index)
-		3:  # Desktop Switcher
+		4:  # Desktop Switcher
 			var widget = Control.new()
 			widget.set_script(load("res://shell/scripts/widgets/desktop_switcher_widget.gd"))
 			add_widget(widget, insert_index)
-		4:  # System Monitor
+		5:  # System Monitor
 			var widget = Control.new()
 			widget.set_script(load("res://shell/scripts/widgets/system_monitor_widget.gd"))
 			add_widget(widget, insert_index)
-		5:  # Cancel
+		6:  # Cancel
 			pass
 
 	popup.queue_free()

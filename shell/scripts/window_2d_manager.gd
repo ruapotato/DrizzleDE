@@ -129,9 +129,37 @@ func create_window_2d(window_id: int):
 	print("  [DEBUG] Requesting window size: ", Vector2(clamped_width, clamped_height), " (X11 size: ", window_size, ", +title bar)")
 	window_2d.set_deferred("size", Vector2(clamped_width, clamped_height))
 
-	# Position window (centered or cascaded)
-	# Use the clamped total size for positioning
-	window_2d.set_deferred("position", get_spawn_position_2d(Vector2i(clamped_width, clamped_height)))
+	# Position window
+	var window_position: Vector2i
+
+	# Check if this window is a popup (has a parent window)
+	var parent_window_id = compositor.get_parent_window_id(window_id)
+	if parent_window_id != -1 and parent_window_id in window_2d_nodes:
+		# This is a popup - position it relative to parent window
+		var parent_window_2d = window_2d_nodes[parent_window_id]
+		var popup_x11_pos = compositor.get_window_position(window_id)
+		var parent_x11_pos = compositor.get_window_position(parent_window_id)
+
+		# Calculate offset from parent window in X11 space
+		var offset_x = popup_x11_pos.x - parent_x11_pos.x
+		var offset_y = popup_x11_pos.y - parent_x11_pos.y
+
+		# Apply offset to parent's 2D position
+		# Note: parent 2D position includes the title bar, so we need to account for that
+		# Title bar height = 32 (must match TITLE_BAR_HEIGHT in window_2d.gd)
+		window_position = Vector2i(
+			parent_window_2d.position.x + offset_x,
+			parent_window_2d.position.y + offset_y + 32
+		)
+		print("  [DEBUG] Popup window ", window_id, " - parent: ", parent_window_id)
+		print("    Popup X11 pos: ", popup_x11_pos, ", Parent X11 pos: ", parent_x11_pos)
+		print("    Offset: (", offset_x, ", ", offset_y, "), Parent 2D pos: ", parent_window_2d.position)
+		print("    Final popup pos: ", window_position)
+	else:
+		# Normal window - use cascaded/centered positioning
+		window_position = get_spawn_position_2d(Vector2i(clamped_width, clamped_height))
+
+	window_2d.set_deferred("position", window_position)
 
 	# Connect signals
 	window_2d.window_focused.connect(_on_window_focused)
@@ -224,6 +252,53 @@ func update_window_2d(window_id: int):
 	else:
 		window_2d.visible = true
 
+	# Update popup position if this is a popup window (follows parent)
+	var parent_window_id = compositor.get_parent_window_id(window_id)
+	if parent_window_id != -1 and parent_window_id in window_2d_nodes:
+		var parent_window_2d = window_2d_nodes[parent_window_id]
+
+		# Don't update position if parent (or any ancestor) is being dragged
+		if not _is_window_or_ancestor_dragging(parent_window_id):
+			var popup_x11_pos = compositor.get_window_position(window_id)
+			var parent_x11_pos = compositor.get_window_position(parent_window_id)
+
+			# Calculate offset from parent window in X11 space
+			var offset_x = popup_x11_pos.x - parent_x11_pos.x
+			var offset_y = popup_x11_pos.y - parent_x11_pos.y
+
+			# Apply offset to parent's 2D position
+			# Title bar height = 32 (must match TITLE_BAR_HEIGHT in window_2d.gd)
+			var new_position = Vector2(
+				parent_window_2d.position.x + offset_x,
+				parent_window_2d.position.y + offset_y + 32
+			)
+
+			# Only update if position changed significantly (avoid jitter)
+			if window_2d.position.distance_to(new_position) > 1.0:
+				window_2d.position = new_position
+
+func _is_window_or_ancestor_dragging(window_id: int) -> bool:
+	"""Check if this window or any of its ancestors is being dragged"""
+	var current_id = window_id
+	var max_iterations = 10
+	var iterations = 0
+
+	while iterations < max_iterations:
+		if current_id in window_2d_nodes:
+			var window_2d = window_2d_nodes[current_id]
+			if "is_dragging" in window_2d and window_2d.is_dragging:
+				return true
+
+		# Check parent
+		var parent_id = compositor.get_parent_window_id(current_id)
+		if parent_id == -1:
+			break
+
+		current_id = parent_id
+		iterations += 1
+
+	return false
+
 func get_spawn_position_2d(window_size: Vector2i) -> Vector2:
 	"""Calculate spawn position for new window"""
 	var viewport_size = get_viewport().get_visible_rect().size
@@ -284,12 +359,42 @@ func update_z_order():
 	# In Godot, child order determines drawing order
 	# Earlier children are drawn first (behind), later children on top
 
-	# Move windows in reverse Z-order (back to front)
-	for i in range(window_z_order.size() - 1, -1, -1):
-		var window_id = window_z_order[i]
+	# Build a list that ensures popups are always above their parents
+	var ordered_windows = _build_z_order_with_popups()
+
+	# Move windows in the computed order (back to front)
+	for window_id in ordered_windows:
 		if window_id in window_2d_nodes:
 			var window_2d = window_2d_nodes[window_id]
 			container.move_child(window_2d, -1)  # Move to end (on top)
+
+func _build_z_order_with_popups() -> Array:
+	"""Build Z-order list ensuring popups are above their parents"""
+	var result = []
+	var processed = {}
+
+	# Helper function to add a window and all its popups recursively
+	var add_window_with_popups = func(window_id, _add_func_ref):
+		if window_id in processed:
+			return
+		processed[window_id] = true
+		result.append(window_id)
+
+		# Add all popup children of this window
+		for child_id in window_2d_nodes:
+			var parent_id = compositor.get_parent_window_id(child_id)
+			if parent_id == window_id:
+				_add_func_ref.call(child_id, _add_func_ref)
+
+	# Process windows in reverse Z-order (back to front)
+	for i in range(window_z_order.size() - 1, -1, -1):
+		var window_id = window_z_order[i]
+		# Only add root windows (windows without parents or whose parents aren't tracked)
+		var parent_id = compositor.get_parent_window_id(window_id)
+		if parent_id == -1 or parent_id not in window_2d_nodes:
+			add_window_with_popups.call(window_id, add_window_with_popups)
+
+	return result
 
 func show_all_windows():
 	"""Show all windows (called when entering 2D mode)"""
