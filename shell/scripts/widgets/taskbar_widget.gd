@@ -7,12 +7,16 @@ extends "res://shell/scripts/widget_base.gd"
 
 var window_2d_manager: Node = null
 var compositor: Node = null
+var filesystem_generator: Node = null
 
 # Window buttons: window_id -> Button
 var window_buttons := {}
 
 # Container for buttons
 var button_container: HBoxContainer
+
+# Current directory filter
+var current_directory: String = ""
 
 func _widget_ready():
 	widget_name = "Taskbar"
@@ -21,6 +25,7 @@ func _widget_ready():
 	# Find managers
 	window_2d_manager = get_node_or_null("/root/Main/Window2DManager")
 	compositor = get_node_or_null("/root/Main/X11Compositor")
+	filesystem_generator = get_node_or_null("/root/Main/FileSystemGenerator")
 
 	if not window_2d_manager:
 		push_error("TaskbarWidget: Window2DManager not found!")
@@ -29,6 +34,13 @@ func _widget_ready():
 	if not compositor:
 		push_error("TaskbarWidget: Compositor not found!")
 		return
+
+	# Get current directory
+	if filesystem_generator and filesystem_generator.has_method("get_current_directory"):
+		current_directory = filesystem_generator.get_current_directory()
+		# Listen for directory changes
+		if filesystem_generator.has_signal("directory_changed"):
+			filesystem_generator.directory_changed.connect(_on_directory_changed)
 
 	# Create button container
 	button_container = HBoxContainer.new()
@@ -46,10 +58,25 @@ func _widget_ready():
 	# Listen for window changes
 	window_2d_manager.window_list_changed.connect(_on_window_list_changed)
 
-	# Initial update
+	# Initial update - filter windows to current directory
+	if window_2d_manager.has_method("filter_windows_by_directory") and not current_directory.is_empty():
+		window_2d_manager.filter_windows_by_directory(current_directory)
+
 	_refresh_taskbar()
 
 	print("TaskbarWidget initialized")
+
+func _on_directory_changed(new_directory: String):
+	"""Called when directory changes - filter taskbar to current directory"""
+	print("TaskbarWidget: Directory changed to: ", new_directory)
+	current_directory = new_directory
+
+	# Filter visible windows in window manager
+	if window_2d_manager and window_2d_manager.has_method("filter_windows_by_directory"):
+		window_2d_manager.filter_windows_by_directory(new_directory)
+
+	# Refresh taskbar buttons
+	_refresh_taskbar()
 
 func _refresh_taskbar():
 	"""Rebuild the entire taskbar"""
@@ -61,14 +88,25 @@ func _refresh_taskbar():
 		button.queue_free()
 	window_buttons.clear()
 
-	# Get all windows
-	var window_2d_nodes = window_2d_manager.get("window_2d_nodes")
-	if not window_2d_nodes:
-		return
+	# Get all windows in current directory only
+	if not current_directory.is_empty() and window_2d_manager.has_method("get_windows_in_directory"):
+		var window_ids = window_2d_manager.get_windows_in_directory(current_directory)
+		print("TaskbarWidget: Showing ", window_ids.size(), " windows for directory: ", current_directory)
 
-	# Create button for each window
-	for window_id in window_2d_nodes:
-		_create_window_button(window_id)
+		# Debug: show all window directories
+		var all_dirs = window_2d_manager.get("window_directories")
+		if all_dirs:
+			print("  All window directories: ", all_dirs)
+
+		for window_id in window_ids:
+			_create_window_button(window_id)
+	else:
+		# Fallback: show all windows if no directory filter
+		print("TaskbarWidget: No directory filter, showing all windows")
+		var window_2d_nodes = window_2d_manager.get("window_2d_nodes")
+		if window_2d_nodes:
+			for window_id in window_2d_nodes:
+				_create_window_button(window_id)
 
 func _create_window_button(window_id: int):
 	"""Create a button for a window"""

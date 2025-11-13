@@ -248,10 +248,14 @@ func _create_background():
 	panel_background.anchor_right = 1.0
 	panel_background.anchor_bottom = 1.0
 
-	# Create stylebox
+	# Create stylebox with padding
 	var stylebox = StyleBoxFlat.new()
 	stylebox.bg_color = background_color
 	stylebox.set_corner_radius_all(0)
+	stylebox.content_margin_left = 4
+	stylebox.content_margin_right = 4
+	stylebox.content_margin_top = 2
+	stylebox.content_margin_bottom = 2
 	panel_background.add_theme_stylebox_override("panel", stylebox)
 
 func _create_widget_container():
@@ -265,6 +269,10 @@ func _create_widget_container():
 	widget_container.name = "WidgetContainer"
 	# Allow right-clicks to pass through to panel for context menu
 	widget_container.mouse_filter = Control.MOUSE_FILTER_PASS
+
+	# Add spacing between widgets to prevent overlap
+	widget_container.add_theme_constant_override("separation", 8)
+
 	panel_background.add_child(widget_container)
 
 	# Set alignment
@@ -341,3 +349,9 @@ func clear_widgets():
 func get_widget_count() -> int:
 	"""Get number of widgets in panel"""
 	return widgets.size()
+
+func update_all_widgets():
+	"""Update all widgets in this panel"""
+	for widget in widgets:
+		if widget.has_method("update_widget"):
+			widget.update_widget()

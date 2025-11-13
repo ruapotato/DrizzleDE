@@ -4,6 +4,8 @@ class_name FileSystemGenerator
 ## Generates 3D rooms from file system directories
 ## Each directory becomes a room with files as cubes and subdirectories as hallways
 
+signal directory_changed(new_directory: String)
+
 const FileCube = preload("res://shell/filesystem/file_cube.gd")
 const RoomNode = preload("res://shell/filesystem/room_node.gd")
 
@@ -782,3 +784,19 @@ func enter_room(room: RoomNode, spawn_at_center: bool = false):
 			player.global_position = room.global_position + Vector3(0, 2, 0)
 
 	print("Entered room: ", room.directory_path)
+
+	# Emit signal for widgets to update
+	directory_changed.emit(room.directory_path)
+
+
+func load_directory(dir_path: String):
+	"""Public method to load a directory - called by desktop switcher widget"""
+	print("load_directory called for: ", dir_path)
+	_generate_room_async(dir_path, true)
+
+
+func get_current_directory() -> String:
+	"""Get the current directory path"""
+	if current_room:
+		return current_room.directory_path
+	return ""

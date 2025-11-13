@@ -25,6 +25,9 @@ func _ready():
 	# Enable mouse input for right-click menu
 	mouse_filter = Control.MOUSE_FILTER_PASS
 
+	# Clip contents to prevent overlap
+	clip_contents = true
+
 	_widget_ready()
 
 func _widget_ready():

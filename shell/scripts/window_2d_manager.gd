@@ -22,6 +22,8 @@ var mode_manager: Node = null
 # Window management
 var window_2d_nodes := {}  # window_id -> Window2D
 var window_z_order := []   # Array of window_ids, front to back
+var window_directories := {}  # window_id -> directory path where window was created
+var current_filter_directory := ""  # Current directory filter (empty = show all)
 
 # Window2D scene to instantiate
 var Window2DScene = preload("res://shell/scripts/window_2d.gd")
@@ -112,15 +114,24 @@ func create_window_2d(window_id: int):
 	var max_width = viewport_size.x - 20  # Leave 10px margin on each side
 	var max_height = viewport_size.y - panel_height - 20  # Leave margin and account for panel
 
-	var clamped_width = min(window_size.x, max_width)
-	var clamped_height = min(window_size.y, max_height)
+	# Add title bar height to window size (Window2D = title bar + content)
+	var title_bar_height = 32  # Must match TITLE_BAR_HEIGHT in window_2d.gd
+	var total_width = window_size.x
+	var total_height = window_size.y + title_bar_height
+
+	var clamped_width = min(total_width, max_width)
+	var clamped_height = min(total_height, max_height)
 
 	# Set initial properties
 	window_2d.set_window_title(window_title)
-	window_2d.size = Vector2(clamped_width, clamped_height)
+
+	# Use set_deferred to set size after _ready() completes to avoid anchor conflicts
+	print("  [DEBUG] Requesting window size: ", Vector2(clamped_width, clamped_height), " (X11 size: ", window_size, ", +title bar)")
+	window_2d.set_deferred("size", Vector2(clamped_width, clamped_height))
 
 	# Position window (centered or cascaded)
-	window_2d.position = get_spawn_position_2d(window_size)
+	# Use the clamped total size for positioning
+	window_2d.set_deferred("position", get_spawn_position_2d(Vector2i(clamped_width, clamped_height)))
 
 	# Connect signals
 	window_2d.window_focused.connect(_on_window_focused)
@@ -129,6 +140,35 @@ func create_window_2d(window_id: int):
 
 	# Store reference
 	window_2d_nodes[window_id] = window_2d
+
+	# Store which directory this window was created in
+	var filesystem_generator = get_node_or_null("/root/Main/FileSystemGenerator")
+	var current_dir = ""
+
+	if filesystem_generator and filesystem_generator.has_method("get_current_directory"):
+		current_dir = filesystem_generator.get_current_directory()
+
+	# If empty (in 2D mode), try to get from desktop switcher widget
+	if current_dir.is_empty():
+		var panel_manager = get_node_or_null("/root/Main/PanelManager")
+		if panel_manager:
+			# Try to find desktop switcher widget to get current directory
+			for panel in panel_manager.get("panels").values():
+				for widget in panel.get("widgets"):
+					if widget.has_method("get") and widget.get("current_directory"):
+						current_dir = widget.get("current_directory")
+						break
+				if not current_dir.is_empty():
+					break
+
+	# Still empty? Default to home
+	if current_dir.is_empty():
+		current_dir = OS.get_environment("HOME")
+		if current_dir.is_empty():
+			current_dir = "/home/" + OS.get_environment("USER")
+
+	window_directories[window_id] = current_dir
+	print("Window2DManager: Window ", window_id, " created in directory: ", current_dir)
 
 	# Add to Z-order (new windows go on top)
 	if window_id not in window_z_order:
@@ -148,6 +188,7 @@ func remove_window_2d(window_id: int):
 	var window_2d = window_2d_nodes[window_id]
 	window_2d.queue_free()
 	window_2d_nodes.erase(window_id)
+	window_directories.erase(window_id)  # Remove directory tracking
 
 	# Remove from Z-order
 	var idx = window_z_order.find(window_id)
@@ -168,11 +209,19 @@ func update_window_2d(window_id: int):
 	var window_title = compositor.get_window_title(window_id)
 	window_2d.set_window_title(window_title)
 
-	# Check if window should be shown/hidden based on mapped state
+	# Check if window should be shown/hidden based on mapped state AND directory filter
 	var is_mapped = compositor.is_window_mapped(window_id)
-	if not is_mapped and not window_2d.is_minimized:
+	var window_dir = window_directories.get(window_id, "")
+
+	# Respect directory filtering
+	var passes_directory_filter = true
+	if not current_filter_directory.is_empty():
+		passes_directory_filter = (window_dir == current_filter_directory)
+
+	# Only show if: mapped AND not minimized AND passes directory filter
+	if not is_mapped or window_2d.is_minimized or not passes_directory_filter:
 		window_2d.visible = false
-	elif is_mapped and not window_2d.is_minimized:
+	else:
 		window_2d.visible = true
 
 func get_spawn_position_2d(window_size: Vector2i) -> Vector2:
@@ -244,6 +293,9 @@ func update_z_order():
 
 func show_all_windows():
 	"""Show all windows (called when entering 2D mode)"""
+	# Clear directory filter
+	current_filter_directory = ""
+
 	for window_id in window_2d_nodes:
 		var window_2d = window_2d_nodes[window_id]
 		if not window_2d.is_minimized:
@@ -327,11 +379,55 @@ func minimize_window(window_id: int):
 
 	window_2d_nodes[window_id].minimize()
 
+func get_window_directory(window_id: int) -> String:
+	"""Get the directory where a window was created"""
+	return window_directories.get(window_id, "")
+
+func get_windows_in_directory(directory: String) -> Array:
+	"""Get all window IDs that were created in a specific directory"""
+	var windows = []
+	for window_id in window_directories:
+		if window_directories[window_id] == directory:
+			windows.append(window_id)
+	return windows
+
+func filter_windows_by_directory(directory: String):
+	"""Show only windows from the specified directory, hide others"""
+	print("Window2DManager: Filtering windows for directory: ", directory)
+
+	# Store current filter directory
+	current_filter_directory = directory
+
+	for window_id in window_2d_nodes:
+		var window_2d = window_2d_nodes[window_id]
+		var window_dir = window_directories.get(window_id, "")
+
+		if window_dir == directory:
+			# Show window if not minimized
+			if not window_2d.is_minimized:
+				window_2d.visible = true
+				print("  Showing window ", window_id, " (from ", window_dir, ")")
+		else:
+			# Hide window (it's from a different directory)
+			window_2d.visible = false
+			print("  Hiding window ", window_id, " (from ", window_dir, ")")
+
 func _on_mode_changed(new_mode):
 	"""Handle mode changes from ModeManager"""
 	if new_mode == mode_manager.Mode.MODE_2D:
-		# Entering 2D mode - show all windows
-		show_all_windows()
+		# Entering 2D mode - restore directory filtering
+		var filesystem_generator = get_node_or_null("/root/Main/FileSystemGenerator")
+		if filesystem_generator and filesystem_generator.has_method("get_current_directory"):
+			var current_dir = filesystem_generator.get_current_directory()
+			if not current_dir.is_empty():
+				# Filter windows to current directory
+				filter_windows_by_directory(current_dir)
+			else:
+				# No directory context, show all windows
+				show_all_windows()
+		else:
+			# Fallback: show all windows
+			show_all_windows()
 	else:
 		# Entering 3D mode - hide all windows
 		hide_all_windows()

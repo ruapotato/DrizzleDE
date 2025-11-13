@@ -11,8 +11,6 @@ var mode_manager: Node = null
 
 func _widget_ready():
 	widget_name = "Mode Switcher"
-	min_width = 100
-	preferred_width = 120
 
 	# Find mode manager
 	mode_manager = get_node_or_null("/root/Main/ModeManager")
@@ -21,20 +19,32 @@ func _widget_ready():
 		push_error("ModeSwitcherWidget: ModeManager not found!")
 		return
 
-	# Create button
+	# Create button with longer text to get max size
 	button = Button.new()
-	button.text = "3D Mode"
-	button.custom_minimum_size = Vector2(100, 0)
+	button.text = "3D Mode"  # Both modes are same length
 	button.pressed.connect(_on_button_pressed)
 	add_child(button)
 
 	# Listen for mode changes
 	mode_manager.mode_changed.connect(_on_mode_changed)
 
+	# Wait for button to be ready and calculate size
+	await get_tree().process_frame
+
+	# Calculate size based on button
+	button.reset_size()
+	await get_tree().process_frame
+	var button_width = button.size.x
+
+	# Set our minimum size based on button
+	custom_minimum_size.x = button_width + 8
+	min_width = button_width + 8
+	preferred_width = button_width + 8
+
 	# Update button text
 	_update_button_text()
 
-	print("ModeSwitcherWidget initialized")
+	print("ModeSwitcherWidget initialized with width: ", button_width)
 
 func _on_button_pressed():
 	if not mode_manager:

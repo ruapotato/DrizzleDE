@@ -982,6 +982,24 @@ void X11Compositor::send_key_event(int window_id, int godot_keycode, bool presse
         case 4194315: keysym = XK_Page_Up; break;        // KEY_PAGEUP (0x40000B)
         case 4194316: keysym = XK_Page_Down; break;      // KEY_PAGEDOWN (0x40000C)
 
+        // Keypad keys (Godot 4)
+        case 4194438: keysym = XK_KP_0; break;           // KEY_KP_0 (0x400086)
+        case 4194439: keysym = XK_KP_1; break;           // KEY_KP_1 (0x400087)
+        case 4194440: keysym = XK_KP_2; break;           // KEY_KP_2 (0x400088)
+        case 4194441: keysym = XK_KP_3; break;           // KEY_KP_3 (0x400089)
+        case 4194442: keysym = XK_KP_4; break;           // KEY_KP_4 (0x40008A)
+        case 4194443: keysym = XK_KP_5; break;           // KEY_KP_5 (0x40008B)
+        case 4194444: keysym = XK_KP_6; break;           // KEY_KP_6 (0x40008C)
+        case 4194445: keysym = XK_KP_7; break;           // KEY_KP_7 (0x40008D)
+        case 4194446: keysym = XK_KP_8; break;           // KEY_KP_8 (0x40008E)
+        case 4194447: keysym = XK_KP_9; break;           // KEY_KP_9 (0x40008F)
+        case 4194433: keysym = XK_KP_Multiply; break;    // KEY_KP_MULTIPLY (0x400081)
+        case 4194434: keysym = XK_KP_Divide; break;      // KEY_KP_DIVIDE (0x400082)
+        case 4194435: keysym = XK_KP_Subtract; break;    // KEY_KP_SUBTRACT (0x400083)
+        case 4194436: keysym = XK_KP_Decimal; break;     // KEY_KP_PERIOD (0x400084)
+        case 4194437: keysym = XK_KP_Add; break;         // KEY_KP_ADD (0x400085)
+        case 4194310: keysym = XK_KP_Enter; break;       // KEY_KP_ENTER (0x400006)
+
         default:
             // For printable characters, Godot uses Unicode values which match ASCII for basic chars
             // Try using the keycode directly as a keysym

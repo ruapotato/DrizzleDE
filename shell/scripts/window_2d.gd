@@ -72,9 +72,9 @@ func _ready():
 	if title_bar:
 		title_bar.gui_input.connect(_on_title_bar_input)
 
-	# Start with default size
+	# Set minimum size (actual size will be set by Window2DManager via set_deferred)
 	custom_minimum_size = MIN_WINDOW_SIZE
-	size = restore_size
+	print("  [DEBUG] Window2D _ready() complete. Size: ", size, ", custom_minimum_size: ", custom_minimum_size)
 
 func create_title_bar():
 	"""Create the title bar with buttons"""
@@ -125,6 +125,7 @@ func create_title_bar():
 
 	# Position title bar at top
 	title_bar.anchor_right = 1.0
+	title_bar.custom_minimum_size.y = TITLE_BAR_HEIGHT
 	title_bar.size.y = TITLE_BAR_HEIGHT
 
 func create_content_area():
@@ -133,14 +134,18 @@ func create_content_area():
 	content_container.name = "ContentContainer"
 	add_child(content_container)
 
-	content_container.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	content_container.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_COVERED
-	content_container.mouse_filter = Control.MOUSE_FILTER_PASS
+	content_container.expand_mode = TextureRect.EXPAND_FIT_WIDTH_PROPORTIONAL
+	content_container.stretch_mode = TextureRect.STRETCH_KEEP
+	content_container.mouse_filter = Control.MOUSE_FILTER_STOP  # Capture input to forward to X11
+	content_container.focus_mode = Control.FOCUS_ALL  # Allow keyboard focus
 
 	# Position below title bar
 	content_container.anchor_right = 1.0
 	content_container.anchor_bottom = 1.0
 	content_container.offset_top = TITLE_BAR_HEIGHT
+
+	# Connect input events to forward to X11 window
+	content_container.gui_input.connect(_on_content_input)
 
 func create_resize_handles():
 	"""Create 8 resize handles (corners and edges)"""
@@ -148,7 +153,7 @@ func create_resize_handles():
 	# Top edge
 	resize_handle_top = create_resize_handle("Top", ResizeMode.TOP)
 	resize_handle_top.anchor_right = 1.0
-	resize_handle_top.size.y = RESIZE_HANDLE_SIZE
+	resize_handle_top.custom_minimum_size.y = RESIZE_HANDLE_SIZE
 
 	# Bottom edge
 	resize_handle_bottom = create_resize_handle("Bottom", ResizeMode.BOTTOM)
@@ -160,7 +165,7 @@ func create_resize_handles():
 	# Left edge
 	resize_handle_left = create_resize_handle("Left", ResizeMode.LEFT)
 	resize_handle_left.anchor_bottom = 1.0
-	resize_handle_left.size.x = RESIZE_HANDLE_SIZE
+	resize_handle_left.custom_minimum_size.x = RESIZE_HANDLE_SIZE
 
 	# Right edge
 	resize_handle_right = create_resize_handle("Right", ResizeMode.RIGHT)
@@ -171,21 +176,21 @@ func create_resize_handles():
 
 	# Top-left corner
 	resize_handle_top_left = create_resize_handle("TopLeft", ResizeMode.TOP_LEFT)
-	resize_handle_top_left.size = Vector2(RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE)
+	resize_handle_top_left.custom_minimum_size = Vector2(RESIZE_HANDLE_SIZE, RESIZE_HANDLE_SIZE)
 
 	# Top-right corner
 	resize_handle_top_right = create_resize_handle("TopRight", ResizeMode.TOP_RIGHT)
 	resize_handle_top_right.anchor_left = 1.0
 	resize_handle_top_right.anchor_right = 1.0
 	resize_handle_top_right.offset_left = -RESIZE_HANDLE_SIZE
-	resize_handle_top_right.size.y = RESIZE_HANDLE_SIZE
+	resize_handle_top_right.custom_minimum_size.y = RESIZE_HANDLE_SIZE
 
 	# Bottom-left corner
 	resize_handle_bottom_left = create_resize_handle("BottomLeft", ResizeMode.BOTTOM_LEFT)
 	resize_handle_bottom_left.anchor_top = 1.0
 	resize_handle_bottom_left.anchor_bottom = 1.0
 	resize_handle_bottom_left.offset_top = -RESIZE_HANDLE_SIZE
-	resize_handle_bottom_left.size.x = RESIZE_HANDLE_SIZE
+	resize_handle_bottom_left.custom_minimum_size.x = RESIZE_HANDLE_SIZE
 
 	# Bottom-right corner
 	resize_handle_bottom_right = create_resize_handle("BottomRight", ResizeMode.BOTTOM_RIGHT)
@@ -223,8 +228,16 @@ func get_cursor_for_resize_mode(mode: ResizeMode) -> Control.CursorShape:
 		_:
 			return Control.CURSOR_ARROW
 
+var _debug_size_set := false
+
 func _process(_delta):
 	"""Update window texture and handle dragging/resizing"""
+	# Debug: Log size once after it's been set via set_deferred
+	if not _debug_size_set and size.x > 0 and size.y > 0:
+		_debug_size_set = true
+		print("  [DEBUG] Window2D size after set_deferred: ", size)
+		print("  [DEBUG] Content container size: ", content_container.size if content_container else Vector2.ZERO)
+
 	# Update X11 texture
 	if compositor and window_id >= 0 and not is_minimized:
 		update_texture()
@@ -275,6 +288,45 @@ func _gui_input(event: InputEvent):
 			window_focused.emit(window_id)
 			get_viewport().set_input_as_handled()
 
+func _on_content_input(event: InputEvent):
+	"""Forward input events to the X11 window"""
+	if not compositor or window_id < 0:
+		return
+
+	# Get mouse position relative to content container
+	var mouse_pos = content_container.get_local_mouse_position()
+	var x = int(mouse_pos.x)
+	var y = int(mouse_pos.y)
+
+	if event is InputEventMouseButton:
+		var mb = event as InputEventMouseButton
+
+		# Focus window and grab keyboard focus on any click
+		window_focused.emit(window_id)
+		content_container.grab_focus()
+
+		# Forward mouse button event to X11
+		# Godot uses MOUSE_BUTTON_LEFT=1, MOUSE_BUTTON_RIGHT=2, MOUSE_BUTTON_MIDDLE=3
+		# X11 uses Button1=1 (left), Button2=2 (middle), Button3=3 (right)
+		var x11_button = mb.button_index
+		if mb.button_index == MOUSE_BUTTON_RIGHT:
+			x11_button = 3
+		elif mb.button_index == MOUSE_BUTTON_MIDDLE:
+			x11_button = 2
+
+		compositor.send_mouse_button(window_id, x11_button, mb.pressed, x, y)
+		get_viewport().set_input_as_handled()
+
+	elif event is InputEventMouseMotion:
+		# Forward mouse motion to X11
+		compositor.send_mouse_motion(window_id, x, y)
+
+	elif event is InputEventKey:
+		var key = event as InputEventKey
+		# Forward keyboard event to X11
+		compositor.send_key_event(window_id, int(key.keycode), key.pressed)
+		get_viewport().set_input_as_handled()
+
 func _on_title_bar_input(event: InputEvent):
 	"""Handle title bar interactions (dragging, double-click to maximize)"""
 	if event is InputEventMouseButton:
@@ -286,10 +338,6 @@ func _on_title_bar_input(event: InputEvent):
 				is_dragging = true
 				drag_offset = get_global_mouse_position() - global_position
 				window_focused.emit(window_id)
-
-				# Check for double-click to maximize
-				if mb.double_click:
-					_on_maximize_pressed()
 				get_viewport().set_input_as_handled()
 			else:
 				# Stop dragging

@@ -18,6 +18,8 @@ var PanelScript = preload("res://shell/scripts/panel_base.gd")
 var ModeSwitcherWidget = preload("res://shell/scripts/widgets/mode_switcher_widget.gd")
 var AppLauncherWidget = preload("res://shell/scripts/widgets/app_launcher_widget.gd")
 var TaskbarWidget = preload("res://shell/scripts/widgets/taskbar_widget.gd")
+var SystemMonitorWidget = preload("res://shell/scripts/widgets/system_monitor_widget.gd")
+var DesktopSwitcherWidget = preload("res://shell/scripts/widgets/desktop_switcher_widget.gd")
 
 func _ready():
 	# Find mode manager
@@ -45,26 +47,46 @@ func _create_default_panels():
 	await get_tree().process_frame
 
 	# === Top Panel Widgets ===
-	# Add mode switcher widget (far left)
-	var mode_switcher = Control.new()
-	mode_switcher.set_script(ModeSwitcherWidget)
-	top_panel.call("add_widget", mode_switcher)
-
-	# Add app launcher widget (left side)
+	# Add app launcher widget (start menu - far left)
 	var app_launcher = Control.new()
 	app_launcher.set_script(AppLauncherWidget)
 	top_panel.call("add_widget", app_launcher)
 
-	# Add taskbar widget (center - expands)
-	var taskbar = Control.new()
-	taskbar.set_script(TaskbarWidget)
-	top_panel.call("add_widget", taskbar)
+	# Add system monitor widget
+	var system_monitor = Control.new()
+	system_monitor.set_script(SystemMonitorWidget)
+	top_panel.call("add_widget", system_monitor)
+
+	# Add spacer to push next widgets to the right
+	var spacer = Control.new()
+	spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	spacer.custom_minimum_size.x = 100  # Larger minimum gap
+	top_panel.call("add_widget", spacer)
+
+	# Add mode switcher widget (3D button - far right)
+	var mode_switcher = Control.new()
+	mode_switcher.set_script(ModeSwitcherWidget)
+	top_panel.call("add_widget", mode_switcher)
 
 	# === Bottom Panel Widgets ===
-	# Bottom panel left empty for now - user can customize
+	# Add taskbar widget (open apps - left side)
+	var taskbar = Control.new()
+	taskbar.set_script(TaskbarWidget)
+	bottom_panel.call("add_widget", taskbar)
 
-	print("  Created top panel with mode switcher, app launcher, and taskbar")
-	print("  Created bottom panel (empty - customize with right-click)")
+	# Add spacer to push desktop switcher to the right
+	var bottom_spacer = Control.new()
+	bottom_spacer.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom_spacer.custom_minimum_size.x = 100  # Larger minimum gap
+	bottom_panel.call("add_widget", bottom_spacer)
+
+	# Add desktop switcher widget (far right)
+	var desktop_switcher = Control.new()
+	desktop_switcher.set_script(DesktopSwitcherWidget)
+	bottom_panel.call("add_widget", desktop_switcher)
+
+	print("  Created top panel with start menu, system monitor, and mode switcher")
+	print("  Created bottom panel with taskbar and desktop switcher")
 
 func create_panel(position: int, thickness: int = 40) -> Control:
 	"""Create a new panel at the specified position
@@ -103,7 +125,12 @@ func _on_mode_changed(new_mode):
 	# Update all panels
 	for panel in panels.values():
 		panel.visible = should_show
+		# Update all widgets in the panel when showing
+		if should_show and panel.has_method("update_all_widgets"):
+			panel.update_all_widgets()
 
 	# Backwards compatibility
 	if top_panel:
 		top_panel.visible = should_show
+		if should_show and top_panel.has_method("update_all_widgets"):
+			top_panel.update_all_widgets()
