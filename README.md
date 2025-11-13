@@ -8,10 +8,12 @@ Transform your Linux desktop from a flat, constrained 2D plane into an infinite 
 
 ### Core Concept
 
+- **Dual-Mode Interface**: Seamlessly switch between 3D spatial navigation and traditional 2D desktop mode
 - **Navigate Your File System**: Your file system becomes a 3D world - each directory is a circular room with files as cubes on the floor
 - **Hallway Navigation**: Walk through physical hallways to enter subdirectories; each room shows subdirectories as tunnels extending from the room edge
 - **Interactive Files**: Click file cubes to open them; click .desktop files to launch applications that appear as 3D windows in the current room
-- **2D Window Mode**: Click any window to smoothly transition to comfortable 2D interaction mode with full mouse/keyboard support
+- **Directory-Scoped Windows**: Applications are scoped to the directory where they were launched - switch directories to switch contexts
+- **2D Desktop Mode**: Full-featured traditional desktop with customizable panels, widgets, and window management
 - **Build Within Your World**: Place walls, floors, and structures within the auto-generated file system rooms using Valheim-style mechanics
 - **First-Person Navigation**: Walk through your workspace with standard FPS controls (WASD, jump, sprint)
 
@@ -74,25 +76,58 @@ Built on proven technologies:
 
 ## Current Status
 
-🚀 **Active Development** - File system navigation implemented, core features working!
+🚀 **Active Development** - Dual-mode 3D/2D desktop environment with full window management!
 
-- ✅ Project architecture defined
+### Core Systems ✅
 - ✅ GDExtension with X11/Xvfb integration
 - ✅ Automatic Xvfb launching and management (headless operation)
 - ✅ Window tracking and capture via Composite extension
-- ✅ Multiple window rendering to 3D textures
-- ✅ **Full input handling** (mouse/keyboard forwarding with XTest)
-- ✅ **Spatial window management** (popups positioned relative to parents)
-- ✅ **Interactive window selection** (raycast-based with hover/select states)
+- ✅ **Full input handling** (mouse/keyboard/keypad forwarding with XTest)
+
+### 3D Spatial Mode ✅
 - ✅ **3D File System Navigation** (directories as rooms, files as interactive cubes)
 - ✅ **File Interaction System** (open files, launch .desktop applications)
 - ✅ **Valheim-style building system** (foundations, walls, floors, roofs, pillars)
 - ✅ **First-person physics controller** (walk, jump, sprint with ground collision)
+- ✅ **Spatial window management** (popups positioned relative to parents)
+- ✅ **Interactive window selection** (raycast-based with hover/select states)
+
+### 2D Desktop Mode ✅
+- ✅ **Customizable Panel System** (top/bottom/left/right panels with dynamic widgets)
+- ✅ **Directory-Scoped Windows** (applications only appear in their launch directory)
+- ✅ **Widget System** (app launcher, taskbar, desktop switcher, system monitor, mode switcher)
+- ✅ **Right-Click Menus** (add/remove widgets and panels on the fly)
+- ✅ **Window Management** (dragging, resizing, minimize/maximize/close)
+- ✅ **System Monitor** (real-time CPU, RAM, disk, network graphs)
+
+### In Progress ⏳
 - ⬜ Window mounting to building surfaces
 - ⬜ World save/load system
+- ⬜ Panel/widget configuration persistence
 - ⬜ Polish and optimization
 
 ### Recent Achievements
+
+#### 2D Desktop Mode (NEW!)
+- **Dual-Mode Interface**: Seamlessly switch between 3D spatial mode and traditional 2D desktop
+  - Click "2D Mode" button or press M to enter 2D desktop mode
+  - Full window management with dragging, resizing, minimize/maximize/close
+  - Directory-aware: applications are scoped to their launch directory
+- **Customizable Panel System**: MATE-like panel system with dynamic widget management
+  - Top panel: App launcher, system monitor, mode switcher (default)
+  - Bottom panel: Taskbar, desktop switcher (default)
+  - Right-click panels to add/remove widgets or create new panels
+  - Supports top, bottom, left, and right panel positions
+- **Rich Widget System**:
+  - **App Launcher**: Full application menu with search (discovers all .desktop files)
+  - **Taskbar**: Shows open windows with click-to-focus (directory-filtered)
+  - **Desktop Switcher**: Quick navigation between Home, Desktop, Documents, Downloads, Pictures, Videos
+  - **System Monitor**: Real-time graphs for CPU, RAM, disk usage, and network activity
+  - **Mode Switcher**: Toggle between 2D and 3D modes
+- **Directory-Scoped Workflows**: Each directory acts as a separate workspace
+  - Launch apps in Home → they only appear when viewing Home directory
+  - Switch to Documents → see only apps launched in Documents
+  - Perfect for separating work contexts without virtual desktops
 
 #### File System Navigation
 - **3D File System**: Your file system is now a navigable 3D world! Each directory is a circular room with:
@@ -233,7 +268,21 @@ Applications will appear as textured quads in the 3D environment!
 
 ### Controls
 
-#### Movement (First-Person)
+#### Mode Switching
+- **M key** - Toggle between 2D and 3D modes
+- **Mode Switcher widget** - Click to switch modes (in 2D mode)
+
+#### 2D Desktop Mode
+- **Mouse** - Click, drag, interact with windows and widgets
+- **Left click on window title bar** - Drag window
+- **Left click on window edges/corners** - Resize window
+- **Window buttons** - Minimize, maximize, close
+- **Right click on panel** - Show panel menu (add widgets, add panels)
+- **Right click on widget** - Show widget menu (move, remove)
+- **Desktop Switcher** - Click directory buttons to switch workspaces
+- **Taskbar** - Click window button to focus that window
+
+#### Movement (3D Mode / First-Person)
 - **WASD** - Walk forward/left/backward/right
 - **Space** - Jump
 - **Shift** - Sprint
@@ -286,8 +335,19 @@ DrizzleDE/
 │   │   └── inventory_menu.tscn      # Application launcher
 │   └── scripts/
 │       ├── player_controller.gd     # First-person controller
-│       ├── window_display.gd        # X11 window display
-│       └── window_interaction.gd    # Window & file interaction
+│       ├── window_display.gd        # X11 window display (3D mode)
+│       ├── window_interaction.gd    # Window & file interaction (3D mode)
+│       ├── window_2d.gd             # 2D window with title bar and controls
+│       ├── window_2d_manager.gd     # 2D window management
+│       ├── panel_base.gd            # Base class for desktop panels
+│       ├── panel_manager.gd         # Panel system manager
+│       ├── widget_base.gd           # Base class for panel widgets
+│       └── widgets/                 # Panel widgets
+│           ├── app_launcher_widget.gd      # Application menu
+│           ├── taskbar_widget.gd           # Window list
+│           ├── desktop_switcher_widget.gd  # Directory switcher
+│           ├── system_monitor_widget.gd    # Resource graphs
+│           └── mode_switcher_widget.gd     # 2D/3D toggle
 ├── demo/                            # Minimal X11 compositor demo
 │   └── scripts/
 │       └── window_display.gd        # Basic window rendering example
