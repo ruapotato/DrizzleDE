@@ -658,11 +658,12 @@ func _get_root_window():
 	return self
 
 func set_fullscreen(enabled: bool):
-	"""Set fullscreen mode (no decorations)"""
+	"""Set fullscreen mode (Windows-style maximize with title bar visible)"""
 	is_fullscreen = enabled
 
-	if title_bar:
-		title_bar.visible = not enabled
+	# Keep title bar visible (Windows maximize style, not true fullscreen)
+	# if title_bar:
+	# 	title_bar.visible = not enabled
 
 	# Hide resize handles in fullscreen
 	if resize_handle_top:
@@ -676,18 +677,20 @@ func set_fullscreen(enabled: bool):
 		resize_handle_bottom_right.visible = not enabled
 
 	if enabled:
-		# Fill entire viewport below the panel
+		# Fill entire viewport below the panel (keep title bar visible)
 		var viewport_size = get_viewport().get_visible_rect().size
 		var panel_height = 40  # Top panel height
 		position = Vector2(0, panel_height)
 		size = Vector2(viewport_size.x, viewport_size.y - panel_height)
-		content_container.offset_top = 0
+		# Keep content_container offset for title bar (don't set to 0)
+		content_container.offset_top = TITLE_BAR_HEIGHT
 
-		# Resize X11 window to match content area
+		# Resize X11 window to match content area (below title bar)
 		if compositor and window_id >= 0:
 			var content_width = int(size.x)
-			var content_height = int(size.y)
-			compositor.resize_window(window_id, content_width, content_height)
+			var content_height = int(size.y) - TITLE_BAR_HEIGHT
+			if content_height > 0:
+				compositor.resize_window(window_id, content_width, content_height)
 	else:
 		# Restore decorations
 		content_container.offset_top = TITLE_BAR_HEIGHT
