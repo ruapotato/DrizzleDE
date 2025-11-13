@@ -29,6 +29,7 @@ enum ResizeMode { NONE, TOP, BOTTOM, LEFT, RIGHT, TOP_LEFT, TOP_RIGHT, BOTTOM_LE
 var resize_mode: ResizeMode = ResizeMode.NONE
 var resize_start_position: Vector2 = Vector2.ZERO
 var resize_start_size: Vector2 = Vector2.ZERO
+var resize_start_mouse_position: Vector2 = Vector2.ZERO
 
 # Window constraints
 const MIN_WINDOW_SIZE := Vector2(200, 150)
@@ -368,6 +369,7 @@ func _on_resize_handle_input(event: InputEvent, mode: ResizeMode):
 				resize_mode = mode
 				resize_start_position = position
 				resize_start_size = size
+				resize_start_mouse_position = get_viewport().get_mouse_position()
 				window_focused.emit(window_id)
 			else:
 				# Stop resizing
@@ -376,7 +378,7 @@ func _on_resize_handle_input(event: InputEvent, mode: ResizeMode):
 func handle_resize():
 	"""Handle active window resizing"""
 	var mouse_pos = get_viewport().get_mouse_position()
-	var delta = mouse_pos - (resize_start_position + resize_start_size / 2)
+	var delta = mouse_pos - resize_start_mouse_position
 
 	match resize_mode:
 		ResizeMode.TOP:
