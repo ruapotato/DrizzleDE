@@ -471,17 +471,28 @@ func update_snap_zone(mouse_pos: Vector2, viewport_size: Vector2, panel_height: 
 	"""Update the current snap zone based on mouse position"""
 	var old_zone = current_snap_zone
 
-	# Check top edge (fullscreen)
-	if mouse_pos.y <= panel_height + SNAP_THRESHOLD:
-		current_snap_zone = SnapZone.TOP
-	# Check left edge (left half)
-	elif mouse_pos.x <= SNAP_THRESHOLD:
-		current_snap_zone = SnapZone.LEFT
-	# Check right edge (right half)
-	elif mouse_pos.x >= viewport_size.x - SNAP_THRESHOLD:
-		current_snap_zone = SnapZone.RIGHT
-	else:
-		current_snap_zone = SnapZone.NONE
+	# Calculate distances to each edge
+	var dist_to_top = mouse_pos.y - panel_height
+	var dist_to_left = mouse_pos.x
+	var dist_to_right = viewport_size.x - mouse_pos.x
+
+	# Find closest edge within threshold
+	var min_dist = SNAP_THRESHOLD + 1
+	var closest_zone = SnapZone.NONE
+
+	if dist_to_top >= 0 and dist_to_top <= SNAP_THRESHOLD and dist_to_top < min_dist:
+		min_dist = dist_to_top
+		closest_zone = SnapZone.TOP
+
+	if dist_to_left <= SNAP_THRESHOLD and dist_to_left < min_dist:
+		min_dist = dist_to_left
+		closest_zone = SnapZone.LEFT
+
+	if dist_to_right <= SNAP_THRESHOLD and dist_to_right < min_dist:
+		min_dist = dist_to_right
+		closest_zone = SnapZone.RIGHT
+
+	current_snap_zone = closest_zone
 
 	# Update preview if zone changed
 	if current_snap_zone != old_zone:
