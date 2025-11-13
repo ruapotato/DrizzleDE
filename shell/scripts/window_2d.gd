@@ -24,6 +24,12 @@ var restore_size: Vector2 = Vector2(800, 600)
 var is_dragging: bool = false
 var drag_offset: Vector2 = Vector2.ZERO
 
+# Snapping state
+enum SnapZone { NONE, TOP, LEFT, RIGHT }
+var current_snap_zone: SnapZone = SnapZone.NONE
+var snap_preview: ColorRect = null
+const SNAP_THRESHOLD := 10  # Distance from edge to trigger snap
+
 # Resizing state
 enum ResizeMode { NONE, TOP, BOTTOM, LEFT, RIGHT, TOP_LEFT, TOP_RIGHT, BOTTOM_LEFT, BOTTOM_RIGHT }
 var resize_mode: ResizeMode = ResizeMode.NONE
@@ -68,6 +74,9 @@ func _ready():
 
 	# Create resize handles
 	create_resize_handles()
+
+	# Create snap preview (hidden by default)
+	create_snap_preview()
 
 	# Connect signals
 	if title_bar:
@@ -229,6 +238,20 @@ func get_cursor_for_resize_mode(mode: ResizeMode) -> Control.CursorShape:
 		_:
 			return Control.CURSOR_ARROW
 
+func create_snap_preview():
+	"""Create the snap preview overlay"""
+	snap_preview = ColorRect.new()
+	snap_preview.name = "SnapPreview"
+	snap_preview.color = Color(0.3, 0.6, 1.0, 0.3)  # Semi-transparent blue
+	snap_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	snap_preview.visible = false
+
+	# Add to viewport so it covers entire screen
+	var viewport = get_viewport()
+	if viewport:
+		viewport.add_child(snap_preview)
+		snap_preview.z_index = 100  # High z-index to appear above windows
+
 var _debug_size_set := false
 
 func _process(_delta):
@@ -263,6 +286,10 @@ func _process(_delta):
 		new_position.y = clamp(new_position.y, min_y, max_y)
 
 		global_position = new_position
+
+		# Check for snap zones
+		var mouse_pos = get_global_mouse_position()
+		update_snap_zone(mouse_pos, viewport_size, panel_height)
 
 	# Handle resizing
 	if resize_mode != ResizeMode.NONE:
@@ -356,6 +383,8 @@ func _on_title_bar_input(event: InputEvent):
 					root_window.is_dragging = false
 				else:
 					is_dragging = false
+					# Apply snap if in snap zone
+					apply_snap()
 				get_viewport().set_input_as_handled()
 
 func _on_resize_handle_input(event: InputEvent, mode: ResizeMode):
@@ -437,6 +466,101 @@ func handle_resize():
 		var content_height = int(size.y) - TITLE_BAR_HEIGHT
 		if content_height > 0:
 			compositor.resize_window(window_id, content_width, content_height)
+
+func update_snap_zone(mouse_pos: Vector2, viewport_size: Vector2, panel_height: float):
+	"""Update the current snap zone based on mouse position"""
+	var old_zone = current_snap_zone
+
+	# Check top edge (fullscreen)
+	if mouse_pos.y <= panel_height + SNAP_THRESHOLD:
+		current_snap_zone = SnapZone.TOP
+	# Check left edge (left half)
+	elif mouse_pos.x <= SNAP_THRESHOLD:
+		current_snap_zone = SnapZone.LEFT
+	# Check right edge (right half)
+	elif mouse_pos.x >= viewport_size.x - SNAP_THRESHOLD:
+		current_snap_zone = SnapZone.RIGHT
+	else:
+		current_snap_zone = SnapZone.NONE
+
+	# Update preview if zone changed
+	if current_snap_zone != old_zone:
+		update_snap_preview(viewport_size, panel_height)
+
+func update_snap_preview(viewport_size: Vector2, panel_height: float):
+	"""Update the snap preview visual"""
+	if not snap_preview:
+		return
+
+	if current_snap_zone == SnapZone.NONE:
+		snap_preview.visible = false
+		return
+
+	snap_preview.visible = true
+
+	match current_snap_zone:
+		SnapZone.TOP:
+			# Fullscreen preview
+			snap_preview.position = Vector2(0, panel_height)
+			snap_preview.size = Vector2(viewport_size.x, viewport_size.y - panel_height)
+		SnapZone.LEFT:
+			# Left half preview
+			snap_preview.position = Vector2(0, panel_height)
+			snap_preview.size = Vector2(viewport_size.x / 2, viewport_size.y - panel_height)
+		SnapZone.RIGHT:
+			# Right half preview
+			snap_preview.position = Vector2(viewport_size.x / 2, panel_height)
+			snap_preview.size = Vector2(viewport_size.x / 2, viewport_size.y - panel_height)
+
+func apply_snap():
+	"""Apply the current snap zone to the window"""
+	if current_snap_zone == SnapZone.NONE:
+		# Hide preview
+		if snap_preview:
+			snap_preview.visible = false
+		return
+
+	var viewport_size = get_viewport().get_visible_rect().size
+	var panel_height = 40
+
+	# Save current state for restoration
+	if not is_maximized and not is_fullscreen:
+		restore_position = position
+		restore_size = size
+
+	match current_snap_zone:
+		SnapZone.TOP:
+			# Fullscreen
+			set_fullscreen(true)
+		SnapZone.LEFT:
+			# Snap to left half
+			is_maximized = false
+			is_fullscreen = false
+			position = Vector2(0, panel_height)
+			size = Vector2(viewport_size.x / 2, viewport_size.y - panel_height)
+			# Resize X11 window
+			if compositor and window_id >= 0:
+				var content_width = int(size.x)
+				var content_height = int(size.y) - TITLE_BAR_HEIGHT
+				if content_height > 0:
+					compositor.resize_window(window_id, content_width, content_height)
+		SnapZone.RIGHT:
+			# Snap to right half
+			is_maximized = false
+			is_fullscreen = false
+			position = Vector2(viewport_size.x / 2, panel_height)
+			size = Vector2(viewport_size.x / 2, viewport_size.y - panel_height)
+			# Resize X11 window
+			if compositor and window_id >= 0:
+				var content_width = int(size.x)
+				var content_height = int(size.y) - TITLE_BAR_HEIGHT
+				if content_height > 0:
+					compositor.resize_window(window_id, content_width, content_height)
+
+	# Hide preview after applying
+	if snap_preview:
+		snap_preview.visible = false
+	current_snap_zone = SnapZone.NONE
 
 func _on_minimize_pressed():
 	"""Handle minimize button click"""
